@@ -159,7 +159,7 @@ const ContextPillPicker = ({
 
     const activeGroup = chapterGroups.find((group) => group.title === activeGroupTitle) ?? chapterGroups[0] ?? null;
     const activeGroupLabel = activeGroup?.title ?? '?????';
-    const activeChapterLabel = chapterNum ? activeGroupLabel + ' ? ' + chapterNum + '?' : 'Select chapter';
+    const activeChapterLabel = chapterNum ? activeGroupLabel : 'Select chapter';
     const activeVerseLabel = verseNum ? verseNum + '?' : 'Select verse';
     const draftVerseOptions = draftChapterNum ? verseOptionsByChapter[draftChapterNum] ?? [] : [];
 
@@ -211,9 +211,6 @@ const ContextPillPicker = ({
                             <span className="block text-[9px] font-semibold uppercase tracking-[0.24em]">
                                 {group.title}
                             </span>
-                            <span className="mt-0.5 block text-[11px] font-medium tracking-[0.08em] opacity-80">
-                                {group.chapters.length}?
-                            </span>
                         </button>
                     );
                 })}
@@ -224,9 +221,6 @@ const ContextPillPicker = ({
                     <div className="flex items-center justify-between gap-3 px-1.5 pt-0.5">
                         <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-gold-primary dark:text-gold-light">
                             {activeGroupLabel}
-                        </span>
-                        <span className="rounded-full border border-gold-primary/18 bg-gold-primary/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-gold-primary dark:border-gold-light/20 dark:bg-gold-light/10 dark:text-gold-light">
-                            {visibleGroupChapters.length}?
                         </span>
                     </div>
 
@@ -247,10 +241,7 @@ const ContextPillPicker = ({
                                     }
                                 >
                                     <span className="min-w-0">
-                                        <span className="block text-[9px] font-semibold uppercase tracking-[0.24em] text-text-secondary/72 dark:text-dark-text-secondary/70">
-                                            Chapter {chapter.value}
-                                        </span>
-                                        <span className="mt-0.5 block truncate text-[13px] font-medium text-text-primary dark:text-dark-text-primary">
+                                        <span className="block truncate text-[13px] font-medium text-text-primary dark:text-dark-text-primary">
                                             {chapter.label}
                                         </span>
                                     </span>
