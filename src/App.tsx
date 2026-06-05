@@ -18,10 +18,21 @@ type ContextOption = {
     label: string;
 };
 
+type ChapterGroupOption = {
+    value: string;
+    label: string;
+    count: number;
+};
+
+type ChapterGroup = {
+    title: string;
+    chapters: ChapterGroupOption[];
+};
+
 interface ContextPillPickerProps {
     chapterNum?: string;
     verseNum?: string;
-    chapterOptions: ContextOption[];
+    chapterGroups: ChapterGroup[];
     verseOptionsByChapter: Record<string, ContextOption[]>;
     onCommitSelection: (chapter: string, verse: string) => void;
 }
@@ -42,13 +53,13 @@ const DefaultVerseRedirect = () => {
     const chapterNum = firstChapter?.chapter ?? 1;
     const verseNum = firstVerse?.verse ?? Number.parseInt(firstVerse?.id.split('.')[1] ?? '1', 10);
 
-    return <Navigate to={`/chapter/${chapterNum}/verse/${verseNum}`} replace />;
+    return <Navigate to={'/chapter/' + chapterNum + '/verse/' + verseNum} replace />;
 };
 
 const ContextPillPicker = ({
     chapterNum,
     verseNum,
-    chapterOptions,
+    chapterGroups,
     verseOptionsByChapter,
     onCommitSelection,
 }: ContextPillPickerProps) => {
@@ -58,7 +69,6 @@ const ContextPillPicker = ({
     const rootRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const panelRef = useRef<HTMLDivElement>(null);
-    const chapterSelectRef = useRef<HTMLSelectElement>(null);
     const verseSelectRef = useRef<HTMLSelectElement>(null);
     const [panelStyle, setPanelStyle] = useState<CSSProperties | null>(null);
 
@@ -84,15 +94,15 @@ const ContextPillPicker = ({
                 return;
             }
 
-            const panelWidth = Math.min(352, window.innerWidth - 16);
+            const panelWidth = Math.min(448, window.innerWidth - 16);
             const left = Math.min(Math.max(rect.left, 8), window.innerWidth - panelWidth - 8);
             const top = rect.bottom + 8;
 
             setPanelStyle({
                 position: 'fixed',
-                top: `${Math.round(top)}px`,
-                left: `${Math.round(left)}px`,
-                width: `${Math.round(panelWidth)}px`,
+                top: Math.round(top) + 'px',
+                left: Math.round(left) + 'px',
+                width: Math.round(panelWidth) + 'px',
             });
         };
 
@@ -117,7 +127,6 @@ const ContextPillPicker = ({
                 rootRef.current &&
                 !rootRef.current.contains(target) &&
                 !panelRef.current?.contains(target) &&
-                !chapterSelectRef.current?.contains(target) &&
                 !verseSelectRef.current?.contains(target)
             ) {
                 setIsOpen(false);
@@ -139,18 +148,23 @@ const ContextPillPicker = ({
         };
     }, [isOpen]);
 
-    useEffect(() => {
-        if (isOpen) {
-            chapterSelectRef.current?.focus();
-        }
-    }, [isOpen]);
-
-    const activeChapterLabel = chapterNum ? `${chapterNum}장` : 'Select chapter';
-    const activeVerseLabel = verseNum ? `${verseNum}절` : 'Select verse';
+    const currentGroupTitle = chapterGroups.find((group) => group.chapters.some((chapter) => chapter.value === draftChapterNum))?.title ?? '';
+    const activeChapterLabel = chapterNum
+        ? currentGroupTitle
+            ? currentGroupTitle + ' ? ' + chapterNum + '?'
+            : chapterNum + '?'
+        : 'Select chapter';
+    const activeVerseLabel = verseNum ? verseNum + '?' : 'Select verse';
     const draftVerseOptions = draftChapterNum ? verseOptionsByChapter[draftChapterNum] ?? [] : [];
 
     const selectClassName =
         'h-11 w-full appearance-none rounded-[1rem] border border-gold-border/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.92)_0%,rgba(255,255,255,0.72)_100%)] px-3.5 pr-9 text-[11px] font-medium tracking-[0.08em] text-text-primary outline-none transition-all duration-300 hover:border-gold-border/25 hover:bg-white hover:shadow-[0_10px_28px_-22px_rgba(0,0,0,0.55)] focus:border-gold-primary/35 focus:bg-white focus:ring-1 focus:ring-gold-primary/15 dark:border-dark-border/60 dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.04)_100%)] dark:text-dark-text-primary dark:hover:bg-white/8 dark:focus:border-gold-light/30 dark:focus:bg-white/10';
+
+    const handleChapterSelect = (nextChapter: string) => {
+        setDraftChapterNum(nextChapter);
+        setDraftVerseNum('');
+        window.requestAnimationFrame(() => verseSelectRef.current?.focus());
+    };
 
     const panel = isOpen ? (
         <div
@@ -169,35 +183,68 @@ const ContextPillPicker = ({
                 </span>
             </div>
 
-            <div className="space-y-2.5">
-                <label className="block rounded-[1.1rem] border border-gold-border/10 bg-white/48 p-2.5 transition-all duration-300 hover:border-gold-border/18 hover:bg-white/60 dark:border-dark-border/60 dark:bg-white/5 dark:hover:bg-white/8">
-                    <span className="mb-1.5 block text-[9px] font-semibold uppercase tracking-[0.24em] text-text-secondary/78 dark:text-dark-text-secondary/78">
-                        Chapter
-                    </span>
-                    <select
-                        ref={chapterSelectRef}
-                        value={draftChapterNum}
-                        onChange={(event) => {
-                            const nextChapter = event.target.value;
-                            if (nextChapter) {
-                                setDraftChapterNum(nextChapter);
-                                setDraftVerseNum('');
-                                window.requestAnimationFrame(() => verseSelectRef.current?.focus());
-                            }
-                        }}
-                        className={selectClassName}
-                    >
-                        <option value="" disabled>
-                            Select chapter
-                        </option>
-                        {chapterOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                                {option.label}
-                            </option>
-                        ))}
-                    </select>
-                </label>
+            <div className="max-h-[min(58vh,30rem)] space-y-3 overflow-y-auto pr-1">
+                {chapterGroups.map((group) => {
+                    const isGroupActive = group.chapters.some((chapter) => chapter.value === draftChapterNum);
 
+                    return (
+                        <section
+                            key={group.title}
+                            className={
+                                'rounded-[1.35rem] border p-2.5 transition-all duration-300 ' +
+                                (isGroupActive
+                                    ? 'border-gold-primary/22 bg-gold-primary/6 shadow-[0_12px_28px_-22px_rgba(166,139,92,0.35)] dark:border-gold-light/22 dark:bg-gold-light/8'
+                                    : 'border-gold-border/10 bg-white/44 dark:border-dark-border/60 dark:bg-white/4')
+                            }
+                        >
+                            <div className="flex items-center justify-between gap-3 px-1.5 pt-0.5">
+                                <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-gold-primary dark:text-gold-light">
+                                    {group.title}
+                                </span>
+                                {isGroupActive ? (
+                                    <span className="rounded-full border border-gold-primary/18 bg-gold-primary/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-gold-primary dark:border-gold-light/20 dark:bg-gold-light/10 dark:text-gold-light">
+                                        Active
+                                    </span>
+                                ) : null}
+                            </div>
+
+                            <div className="mt-2 space-y-1.5">
+                                {group.chapters.map((chapter) => {
+                                    const isSelected = draftChapterNum === chapter.value;
+
+                                    return (
+                                        <button
+                                            key={chapter.value}
+                                            type="button"
+                                            onClick={() => handleChapterSelect(chapter.value)}
+                                            className={
+                                                'flex w-full items-center justify-between gap-3 rounded-[1rem] border px-3 py-2 text-left transition-all duration-300 ' +
+                                                (isSelected
+                                                    ? 'border-gold-primary/24 bg-white/92 shadow-[0_10px_24px_-20px_rgba(166,139,92,0.6)] dark:border-gold-light/18 dark:bg-white/10'
+                                                    : 'border-transparent bg-white/55 hover:border-gold-border/18 hover:bg-white/82 dark:bg-white/5 dark:hover:bg-white/8')
+                                            }
+                                        >
+                                            <span className="min-w-0">
+                                                <span className="block text-[9px] font-semibold uppercase tracking-[0.24em] text-text-secondary/72 dark:text-dark-text-secondary/70">
+                                                    Chapter {chapter.value}
+                                                </span>
+                                                <span className="mt-0.5 block truncate text-[13px] font-medium text-text-primary dark:text-dark-text-primary">
+                                                    {chapter.label}
+                                                </span>
+                                            </span>
+                                            <span className="shrink-0 rounded-full border border-gold-border/18 bg-gold-surface/70 px-2.5 py-1 text-[10px] font-semibold tracking-[0.12em] text-gold-primary dark:border-dark-border/60 dark:bg-white/5 dark:text-gold-light">
+                                                {chapter.count}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </section>
+                    );
+                })}
+            </div>
+
+            <div className="mt-3 space-y-2.5 border-t border-gold-border/12 pt-3 dark:border-dark-border/55">
                 <label className="block rounded-[1.1rem] border border-gold-border/10 bg-white/48 p-2.5 transition-all duration-300 hover:border-gold-border/18 hover:bg-white/60 dark:border-dark-border/60 dark:bg-white/5 dark:hover:bg-white/8">
                     <span className="mb-1.5 block text-[9px] font-semibold uppercase tracking-[0.24em] text-text-secondary/78 dark:text-dark-text-secondary/78">
                         Verse
@@ -216,7 +263,7 @@ const ContextPillPicker = ({
                         disabled={!draftChapterNum}
                     >
                         <option value="" disabled>
-                            Select verse
+                            {draftChapterNum ? 'Select verse' : 'Select chapter first'}
                         </option>
                         {draftVerseOptions.map((option) => (
                             <option key={option.value} value={option.value}>
@@ -239,15 +286,14 @@ const ContextPillPicker = ({
                 aria-haspopup="dialog"
                 className="inline-flex items-center gap-1.5 rounded-full border border-gold-border/14 bg-[linear-gradient(180deg,rgba(255,251,241,0.92)_0%,rgba(248,241,228,0.82)_100%)] px-3.5 py-1.5 text-[10px] font-semibold tracking-[0.18em] text-gold-primary shadow-[0_12px_32px_-24px_rgba(0,0,0,0.45)] backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-gold-primary/30 hover:bg-white/90 active:translate-y-0 dark:border-dark-border/70 dark:bg-[linear-gradient(180deg,rgba(28,23,18,0.92)_0%,rgba(20,17,13,0.82)_100%)] dark:text-gold-light dark:hover:bg-white/8"
             >
-                <span className="whitespace-nowrap">{`${activeChapterLabel} / ${activeVerseLabel}`}</span>
-                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                <span className="whitespace-nowrap">{activeChapterLabel + ' / ' + activeVerseLabel}</span>
+                <ChevronDown className={isOpen ? 'h-3.5 w-3.5 rotate-180 transition-transform duration-300' : 'h-3.5 w-3.5 transition-transform duration-300'} />
             </button>
 
             {isOpen ? createPortal(panel, document.body) : null}
         </div>
     );
 };
-
 const MainLayout = () => {
     const location = useLocation();
     const navigate = useNavigate();
@@ -259,12 +305,27 @@ const MainLayout = () => {
     const desktopGridColumns = isVerseView ? getDesktopVerseColumns(isDesktopSidebarOpen, false) : undefined;
     const currentChapterNumber = isVerseView && chapterNum ? Number.parseInt(chapterNum, 10) : null;
 
-    const chapterOptions = useMemo(
+    const chapterGroups = useMemo(
         () =>
-            chapters.map((chapter) => ({
-                value: String(chapter.chapter),
-                label: chapter.meta.name_korean,
-            })),
+            chapters.reduce<ChapterGroup[]>((groups, chapter) => {
+                const groupTitle = chapter.meta.description || chapter.meta.name_korean || ('Chapter ' + chapter.chapter);
+                const lastGroup = groups[groups.length - 1];
+
+                if (!lastGroup || lastGroup.title !== groupTitle) {
+                    groups.push({
+                        title: groupTitle,
+                        chapters: [],
+                    });
+                }
+
+                groups[groups.length - 1].chapters.push({
+                    value: String(chapter.chapter),
+                    label: chapter.meta.name_korean,
+                    count: chapter.meta.sutraCount,
+                });
+
+                return groups;
+            }, []),
         [chapters],
     );
 
@@ -278,11 +339,11 @@ const MainLayout = () => {
                     const nextVerseNumber = nextSutra
                         ? Number.parseInt(String(nextSutra.verse ?? Number.parseInt(nextSutra.id.split('.')[1], 10)), 10)
                         : null;
-                    const label = nextVerseNumber && nextVerseNumber > verseNumber + 1 ? `${verseNumberText}-${nextVerseNumber - 1}` : verseNumberText;
+                    const label = nextVerseNumber && nextVerseNumber > verseNumber + 1 ? verseNumberText + '-' + (nextVerseNumber - 1) : verseNumberText;
 
                     return {
                         value: verseNumberText,
-                        label: `${label}절`,
+                        label: label,
                     };
                 });
 
@@ -292,19 +353,19 @@ const MainLayout = () => {
     );
 
     const selectionControls =
-        isVerseView && chapterOptions.length > 0 && currentChapterNumber !== null ? (
+        isVerseView && chapterGroups.length > 0 && currentChapterNumber !== null ? (
             <ContextPillPicker
                 chapterNum={chapterNum}
                 verseNum={verseNum}
-                chapterOptions={chapterOptions}
+                chapterGroups={chapterGroups}
                 verseOptionsByChapter={verseOptionsByChapter}
-                onCommitSelection={(nextChapter, nextVerse) => navigate(`/chapter/${nextChapter}/verse/${nextVerse}`)}
+                onCommitSelection={(nextChapter, nextVerse) => navigate('/chapter/' + nextChapter + '/verse/' + nextVerse)}
             />
         ) : undefined;
 
     return (
         <AppShell
-            header={isVerseView ? <Header title="보리도등론(菩提道燈論)" showSidebarToggle selectionControls={selectionControls} /> : undefined}
+            header={isVerseView ? <Header title="?????(?????)" showSidebarToggle selectionControls={selectionControls} /> : undefined}
             sidebar={isVerseView ? <Sidebar /> : undefined}
             isMobilePanelOpen={isVerseView && isSidebarOpen}
             desktopGridColumns={desktopGridColumns}
@@ -337,7 +398,6 @@ const MainLayout = () => {
         </AppShell>
     );
 };
-
 function App() {
     return (
         <Router>
