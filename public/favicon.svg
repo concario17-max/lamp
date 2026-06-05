@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="보리도등론 아이콘">
+  <defs>
+    <linearGradient id="bg" x1="10" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2a2116" />
+      <stop offset="1" stop-color="#120f0b" />
+    </linearGradient>
+    <linearGradient id="lamp" x1="18" y1="16" x2="46" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f3d49a" />
+      <stop offset="1" stop-color="#b98c43" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#bg)" />
+  <circle cx="32" cy="17" r="4" fill="#f7e7c5" opacity="0.95" />
+  <path d="M32 24c-7.2 0-13 5.8-13 13h8.5l4.5-8 4.5 8H45c0-7.2-5.8-13-13-13Z" fill="url(#lamp)" />
+  <path d="M24 40h16l2.5 5.5H21.5L24 40Z" fill="#d6b06c" />
+  <path d="M28 45h8v4h-8z" fill="#8c642b" />
+  <path d="M18 52h28" stroke="#f3d49a" stroke-linecap="round" stroke-width="2" opacity="0.9" />
+</svg>

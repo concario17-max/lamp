@@ -1,6 +1,6 @@
 import { CSSProperties, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpenText, Flower2, ScrollText } from 'lucide-react';
+import { BookOpenText, LampDesk, ScrollText } from 'lucide-react';
 import { useUI } from '../context/UIContext';
 import { getDesktopVerseColumns } from './ui/desktopVerseLayout';
 
@@ -14,7 +14,7 @@ interface HeaderProps {
 }
 
 const Header = ({
-    title = 'Bhagavad Gita',
+    title = '보리도등론(菩提道燈論)',
     targetUrl = '/',
     showSidebarToggle = false,
     selectionControls,
@@ -62,7 +62,7 @@ const Header = ({
                 <div className="flex min-w-0 items-center gap-2 text-text-primary dark:text-dark-text-primary">
                     <Link to={targetUrl} className="group flex min-w-0 items-center gap-2 truncate">
                         <span className="flex shrink-0 items-center justify-center text-gold-primary opacity-90 transition-transform duration-700 group-hover:rotate-6">
-                            <Flower2 className="h-4 w-4 sm:h-5 sm:w-5" />
+                            <LampDesk className="h-4 w-4 sm:h-5 sm:w-5" />
                         </span>
                         <span className="min-w-0 truncate font-display text-[14px] font-medium tracking-[0.02em] text-text-primary transition-colors group-hover:text-gold-primary sm:text-[15px] dark:text-dark-text-primary">
                             {title}
@@ -88,7 +88,7 @@ const Header = ({
                 <div className="flex min-w-0 items-center gap-3 px-5">
                     <Link to={targetUrl} className="group flex min-w-0 items-center gap-2 truncate text-text-primary dark:text-dark-text-primary">
                         <span className="flex shrink-0 items-center justify-center text-gold-primary opacity-90 transition-transform duration-700 group-hover:rotate-6">
-                            <Flower2 className="h-5 w-5" />
+                            <LampDesk className="h-5 w-5" />
                         </span>
                         <span className="truncate font-display text-[16px] font-medium tracking-[0.02em] text-text-primary transition-colors group-hover:text-gold-primary xl:text-[17px] dark:text-dark-text-primary">
                             {title}
