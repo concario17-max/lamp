@@ -66,6 +66,7 @@ const ContextPillPicker = ({
     const [isOpen, setIsOpen] = useState(false);
     const [draftChapterNum, setDraftChapterNum] = useState(chapterNum ?? '');
     const [draftVerseNum, setDraftVerseNum] = useState(verseNum ?? '');
+    const [activeGroupTitle, setActiveGroupTitle] = useState('');
     const rootRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const panelRef = useRef<HTMLDivElement>(null);
@@ -77,11 +78,19 @@ const ContextPillPicker = ({
     }, [chapterNum, verseNum]);
 
     useEffect(() => {
+        const groupTitle = chapterGroups.find((group) => group.chapters.some((chapter) => chapter.value === chapterNum))?.title ?? chapterGroups[0]?.title ?? '';
         if (!isOpen) {
+            setActiveGroupTitle(groupTitle);
             setDraftChapterNum(chapterNum ?? '');
             setDraftVerseNum(verseNum ?? '');
         }
-    }, [chapterNum, isOpen, verseNum]);
+    }, [chapterGroups, chapterNum, isOpen, verseNum]);
+
+    useEffect(() => {
+        if (!activeGroupTitle) {
+            setActiveGroupTitle(chapterGroups[0]?.title ?? '');
+        }
+    }, [activeGroupTitle, chapterGroups]);
 
     useLayoutEffect(() => {
         if (!isOpen || !triggerRef.current) {
@@ -148,12 +157,9 @@ const ContextPillPicker = ({
         };
     }, [isOpen]);
 
-    const currentGroupTitle = chapterGroups.find((group) => group.chapters.some((chapter) => chapter.value === draftChapterNum))?.title ?? '';
-    const activeChapterLabel = chapterNum
-        ? currentGroupTitle
-            ? currentGroupTitle + ' ? ' + chapterNum + '?'
-            : chapterNum + '?'
-        : 'Select chapter';
+    const activeGroup = chapterGroups.find((group) => group.title === activeGroupTitle) ?? chapterGroups[0] ?? null;
+    const activeGroupLabel = activeGroup?.title ?? '?????';
+    const activeChapterLabel = chapterNum ? activeGroupLabel + ' ? ' + chapterNum + '?' : 'Select chapter';
     const activeVerseLabel = verseNum ? verseNum + '?' : 'Select verse';
     const draftVerseOptions = draftChapterNum ? verseOptionsByChapter[draftChapterNum] ?? [] : [];
 
@@ -165,6 +171,8 @@ const ContextPillPicker = ({
         setDraftVerseNum('');
         window.requestAnimationFrame(() => verseSelectRef.current?.focus());
     };
+
+    const visibleGroupChapters = activeGroup?.chapters ?? [];
 
     const panel = isOpen ? (
         <div
@@ -183,65 +191,77 @@ const ContextPillPicker = ({
                 </span>
             </div>
 
-            <div className="max-h-[min(58vh,30rem)] space-y-3 overflow-y-auto pr-1">
+            <div className="mb-3 grid grid-cols-2 gap-2 rounded-[1.25rem] border border-gold-border/10 bg-white/30 p-1.5 dark:border-dark-border/60 dark:bg-white/4">
                 {chapterGroups.map((group) => {
-                    const isGroupActive = group.chapters.some((chapter) => chapter.value === draftChapterNum);
+                    const isSelected = group.title === activeGroupLabel;
 
                     return (
-                        <section
+                        <button
                             key={group.title}
+                            type="button"
+                            onClick={() => setActiveGroupTitle(group.title)}
+                            aria-pressed={isSelected}
                             className={
-                                'rounded-[1.35rem] border p-2.5 transition-all duration-300 ' +
-                                (isGroupActive
-                                    ? 'border-gold-primary/22 bg-gold-primary/6 shadow-[0_12px_28px_-22px_rgba(166,139,92,0.35)] dark:border-gold-light/22 dark:bg-gold-light/8'
-                                    : 'border-gold-border/10 bg-white/44 dark:border-dark-border/60 dark:bg-white/4')
+                                'rounded-[0.95rem] px-3 py-2 text-left transition-all duration-300 ' +
+                                (isSelected
+                                    ? 'bg-white/92 text-gold-primary shadow-[0_10px_24px_-20px_rgba(166,139,92,0.7)] dark:bg-white/10 dark:text-gold-light'
+                                    : 'text-text-secondary/75 hover:bg-white/72 hover:text-text-primary dark:text-dark-text-secondary dark:hover:bg-white/8 dark:hover:text-dark-text-primary')
                             }
                         >
-                            <div className="flex items-center justify-between gap-3 px-1.5 pt-0.5">
-                                <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-gold-primary dark:text-gold-light">
-                                    {group.title}
-                                </span>
-                                {isGroupActive ? (
-                                    <span className="rounded-full border border-gold-primary/18 bg-gold-primary/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-gold-primary dark:border-gold-light/20 dark:bg-gold-light/10 dark:text-gold-light">
-                                        Active
-                                    </span>
-                                ) : null}
-                            </div>
-
-                            <div className="mt-2 space-y-1.5">
-                                {group.chapters.map((chapter) => {
-                                    const isSelected = draftChapterNum === chapter.value;
-
-                                    return (
-                                        <button
-                                            key={chapter.value}
-                                            type="button"
-                                            onClick={() => handleChapterSelect(chapter.value)}
-                                            className={
-                                                'flex w-full items-center justify-between gap-3 rounded-[1rem] border px-3 py-2 text-left transition-all duration-300 ' +
-                                                (isSelected
-                                                    ? 'border-gold-primary/24 bg-white/92 shadow-[0_10px_24px_-20px_rgba(166,139,92,0.6)] dark:border-gold-light/18 dark:bg-white/10'
-                                                    : 'border-transparent bg-white/55 hover:border-gold-border/18 hover:bg-white/82 dark:bg-white/5 dark:hover:bg-white/8')
-                                            }
-                                        >
-                                            <span className="min-w-0">
-                                                <span className="block text-[9px] font-semibold uppercase tracking-[0.24em] text-text-secondary/72 dark:text-dark-text-secondary/70">
-                                                    Chapter {chapter.value}
-                                                </span>
-                                                <span className="mt-0.5 block truncate text-[13px] font-medium text-text-primary dark:text-dark-text-primary">
-                                                    {chapter.label}
-                                                </span>
-                                            </span>
-                                            <span className="shrink-0 rounded-full border border-gold-border/18 bg-gold-surface/70 px-2.5 py-1 text-[10px] font-semibold tracking-[0.12em] text-gold-primary dark:border-dark-border/60 dark:bg-white/5 dark:text-gold-light">
-                                                {chapter.count}
-                                            </span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </section>
+                            <span className="block text-[9px] font-semibold uppercase tracking-[0.24em]">
+                                {group.title}
+                            </span>
+                            <span className="mt-0.5 block text-[11px] font-medium tracking-[0.08em] opacity-80">
+                                {group.chapters.length}?
+                            </span>
+                        </button>
                     );
                 })}
+            </div>
+
+            <div className="max-h-[min(58vh,30rem)] space-y-3 overflow-y-auto pr-1">
+                <section className="rounded-[1.35rem] border p-2.5 transition-all duration-300 border-gold-primary/22 bg-gold-primary/6 shadow-[0_12px_28px_-22px_rgba(166,139,92,0.35)] dark:border-gold-light/22 dark:bg-gold-light/8">
+                    <div className="flex items-center justify-between gap-3 px-1.5 pt-0.5">
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-gold-primary dark:text-gold-light">
+                            {activeGroupLabel}
+                        </span>
+                        <span className="rounded-full border border-gold-primary/18 bg-gold-primary/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-gold-primary dark:border-gold-light/20 dark:bg-gold-light/10 dark:text-gold-light">
+                            {visibleGroupChapters.length}?
+                        </span>
+                    </div>
+
+                    <div className="mt-2 space-y-1.5">
+                        {visibleGroupChapters.map((chapter) => {
+                            const isSelected = draftChapterNum === chapter.value;
+
+                            return (
+                                <button
+                                    key={chapter.value}
+                                    type="button"
+                                    onClick={() => handleChapterSelect(chapter.value)}
+                                    className={
+                                        'flex w-full items-center justify-between gap-3 rounded-[1rem] border px-3 py-2 text-left transition-all duration-300 ' +
+                                        (isSelected
+                                            ? 'border-gold-primary/24 bg-white/92 shadow-[0_10px_24px_-20px_rgba(166,139,92,0.6)] dark:border-gold-light/18 dark:bg-white/10'
+                                            : 'border-transparent bg-white/55 hover:border-gold-border/18 hover:bg-white/82 dark:bg-white/5 dark:hover:bg-white/8')
+                                    }
+                                >
+                                    <span className="min-w-0">
+                                        <span className="block text-[9px] font-semibold uppercase tracking-[0.24em] text-text-secondary/72 dark:text-dark-text-secondary/70">
+                                            Chapter {chapter.value}
+                                        </span>
+                                        <span className="mt-0.5 block truncate text-[13px] font-medium text-text-primary dark:text-dark-text-primary">
+                                            {chapter.label}
+                                        </span>
+                                    </span>
+                                    <span className="shrink-0 rounded-full border border-gold-border/18 bg-gold-surface/70 px-2.5 py-1 text-[10px] font-semibold tracking-[0.12em] text-gold-primary dark:border-dark-border/60 dark:bg-white/5 dark:text-gold-light">
+                                        {chapter.count}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </section>
             </div>
 
             <div className="mt-3 space-y-2.5 border-t border-gold-border/12 pt-3 dark:border-dark-border/55">
