@@ -387,17 +387,12 @@ const ContextPillPicker = ({
                                     </span>
                                 </div>
                             </div>
-                            <div className="flex shrink-0 items-center gap-2">
-                                <span className="rounded-full border border-gold-border/16 bg-gold-surface/70 px-2.5 py-1 text-[10px] font-semibold tracking-[0.1em] text-gold-primary dark:border-dark-border/60 dark:bg-white/6 dark:text-gold-light">
-                                    {node.leafCount}
-                                </span>
-                                <ChevronDown
-                                    className={
-                                        'h-4 w-4 text-gold-primary transition-transform duration-300 dark:text-gold-light ' +
-                                        (isExpanded ? 'rotate-180' : '')
-                                    }
-                                />
-                            </div>
+                            <ChevronDown
+                                className={
+                                    'shrink-0 h-4 w-4 text-gold-primary transition-transform duration-300 dark:text-gold-light ' +
+                                    (isExpanded ? 'rotate-180' : '')
+                                }
+                            />
                         </button>
 
                         {isExpanded ? (
@@ -428,7 +423,7 @@ const ContextPillPicker = ({
                             {node.label}
                         </span>
                     </span>
-                    <span className="shrink-0 rounded-full border border-gold-border/18 bg-gold-surface/70 px-2.5 py-1 text-[10px] font-semibold tracking-[0.12em] text-gold-primary dark:border-dark-border/60 dark:bg-white/5 dark:text-gold-light">
+                    <span className="shrink-0 text-[10px] font-semibold tracking-[0.12em] text-gold-primary dark:text-gold-light">
                         {node.verseCount}
                     </span>
                 </button>
@@ -470,7 +465,6 @@ const ContextPillPicker = ({
                             }
                         >
                             <span className="block text-[9px] font-semibold uppercase tracking-[0.24em]">{group.title}</span>
-                            <span className="mt-1.5 block text-[9px] font-medium tracking-[0.16em] opacity-70">{group.leafCount}</span>
                         </button>
                     );
                 })}
@@ -481,9 +475,6 @@ const ContextPillPicker = ({
                     <div className="flex items-center justify-between gap-3 px-1.5 pt-0.5">
                         <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-gold-primary dark:text-gold-light">
                             {activeGroupLabel}
-                        </span>
-                        <span className="rounded-full border border-gold-border/16 bg-white/70 px-2.5 py-1 text-[9px] font-semibold tracking-[0.14em] text-text-secondary dark:border-dark-border/60 dark:bg-white/6 dark:text-dark-text-secondary">
-                            {activeGroup?.leafCount ?? 0}
                         </span>
                     </div>
 
