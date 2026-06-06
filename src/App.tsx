@@ -385,9 +385,6 @@ const ContextPillPicker = ({
                                     >
                                         {node.title}
                                     </span>
-                                    <span className="mt-1 block text-[9px] font-medium uppercase tracking-[0.24em] text-text-secondary/68 dark:text-dark-text-secondary/68">
-                                        {node.path.join(' / ')}
-                                    </span>
                                 </div>
                             </div>
                             <div className="flex shrink-0 items-center gap-2">
@@ -454,24 +451,6 @@ const ContextPillPicker = ({
                     {activeChapterLabel} / {activeVerseLabel}
                 </span>
             </div>
-
-            {currentOutlinePath.length > 0 ? (
-                <div className="mb-3 flex flex-wrap gap-1.5 rounded-[1.2rem] border border-gold-border/10 bg-white/34 p-2 dark:border-dark-border/60 dark:bg-white/4">
-                    {currentOutlinePath.map((segment, index) => (
-                        <span
-                            key={segment + '-' + index}
-                            className={
-                                'rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-[0.08em] ' +
-                                (index === 0
-                                    ? 'border-gold-primary/18 bg-gold-primary/10 text-gold-primary dark:border-gold-light/18 dark:bg-gold-light/10 dark:text-gold-light'
-                                    : 'border-gold-border/12 bg-white/78 text-text-secondary dark:border-dark-border/60 dark:bg-white/6 dark:text-dark-text-secondary')
-                            }
-                        >
-                            {segment}
-                        </span>
-                    ))}
-                </div>
-            ) : null}
 
             <div className="mb-3 grid grid-cols-2 gap-2 rounded-[1.25rem] border border-gold-border/10 bg-white/30 p-1.5 dark:border-dark-border/60 dark:bg-white/4">
                 {outlineGroups.map((group) => {
