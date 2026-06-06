@@ -10,6 +10,7 @@ import { useUI } from './context/UIContext';
 import { AppShell } from './components/ui/AppShell';
 import { getDesktopVerseColumns } from './components/ui/desktopVerseLayout';
 import { useYogaData } from './hooks/useYogaData';
+import type { YogaChapter } from './types';
 
 const VerseView = lazy(() => import('./pages/VerseView'));
 
@@ -18,24 +19,164 @@ type ContextOption = {
     label: string;
 };
 
-type ChapterGroupOption = {
-    value: string;
+type ChapterOutlineLeaf = {
+    kind: 'leaf';
+    key: string;
+    chapterNum: string;
     label: string;
-    count: number;
+    verseCount: number;
+    path: string[];
 };
 
-type ChapterGroup = {
+type ChapterOutlineBranch = {
+    kind: 'branch';
+    key: string;
     title: string;
-    chapters: ChapterGroupOption[];
+    path: string[];
+    children: ChapterOutlineNode[];
+    leafCount: number;
+};
+
+type ChapterOutlineNode = ChapterOutlineLeaf | ChapterOutlineBranch;
+
+type ChapterOutlineGroup = {
+    title: string;
+    nodes: ChapterOutlineNode[];
+    leafCount: number;
 };
 
 interface ContextPillPickerProps {
     chapterNum?: string;
     verseNum?: string;
-    chapterGroups: ChapterGroup[];
+    outlineGroups: ChapterOutlineGroup[];
     verseOptionsByChapter: Record<string, ContextOption[]>;
+    currentOutlinePath: string[];
     onCommitSelection: (chapter: string, verse: string) => void;
 }
+
+const normalizeOutlineSegment = (value: string) => value.trim().replace(/\s+/g, ' ');
+
+const getChapterOutlinePath = (chapter: YogaChapter) => {
+    const englishTitle = chapter.meta.name_english?.trim() ?? '';
+    const koreanTitle = chapter.meta.name_korean?.trim() ?? '';
+    const rawPath = englishTitle
+        .split(' / ')
+        .map(normalizeOutlineSegment)
+        .filter(Boolean);
+
+    const isSingleStructuralHeading = rawPath.length === 1 && englishTitle && koreanTitle && englishTitle !== koreanTitle;
+    const branchPath = rawPath.length > 1 ? rawPath.slice(0, -1) : isSingleStructuralHeading ? [englishTitle] : [];
+    const leafLabel = rawPath.length > 1 ? rawPath[rawPath.length - 1] : isSingleStructuralHeading ? koreanTitle || englishTitle : koreanTitle || englishTitle;
+    const displayPath = rawPath.length > 0 ? rawPath : [leafLabel];
+
+    return {
+        branchPath,
+        displayPath,
+        leafLabel,
+    };
+};
+
+const insertOutlineLeaf = (nodes: ChapterOutlineNode[], branchPath: string[], leaf: ChapterOutlineLeaf) => {
+    let currentNodes = nodes;
+    const currentPath: string[] = [];
+
+    branchPath.forEach((segment) => {
+        currentPath.push(segment);
+        const key = currentPath.join(' / ');
+        let branch = currentNodes.find((node): node is ChapterOutlineBranch => node.kind === 'branch' && node.key === key);
+
+        if (!branch) {
+            branch = {
+                kind: 'branch',
+                key,
+                title: segment,
+                path: [...currentPath],
+                children: [] as ChapterOutlineNode[],
+                leafCount: 0,
+            };
+            currentNodes.push(branch);
+        }
+
+        currentNodes = branch.children;
+    });
+
+    currentNodes.push(leaf);
+};
+
+const countOutlineLeaves = (nodes: ChapterOutlineNode[]): number =>
+    nodes.reduce((count: number, node: ChapterOutlineNode): number => {
+        if (node.kind === 'leaf') {
+            return count + 1;
+        }
+
+        const childCount = countOutlineLeaves(node.children);
+        node.leafCount = childCount;
+        return count + childCount;
+    }, 0);
+
+const buildOutlineGroups = (chapters: YogaChapter[]) => {
+    const groups = new Map<string, ChapterOutlineGroup>();
+
+    chapters.forEach((chapter) => {
+        const groupTitle = chapter.meta.description || chapter.meta.name_korean || '보리도등론';
+        const pathInfo = getChapterOutlinePath(chapter);
+        const group: ChapterOutlineGroup = groups.get(groupTitle) ?? {
+            title: groupTitle,
+            nodes: [],
+            leafCount: 0,
+        };
+
+        if (!groups.has(groupTitle)) {
+            groups.set(groupTitle, group);
+        }
+
+        const leaf: ChapterOutlineLeaf = {
+            kind: 'leaf',
+            key: 'chapter-' + chapter.chapter,
+            chapterNum: String(chapter.chapter),
+            label: pathInfo.leafLabel,
+            verseCount: chapter.meta.sutraCount,
+            path: pathInfo.displayPath,
+        };
+
+        if (pathInfo.branchPath.length > 0) {
+            insertOutlineLeaf(group.nodes, pathInfo.branchPath, leaf);
+        } else {
+            group.nodes.push(leaf);
+        }
+    });
+
+    return [...groups.values()].map((group) => {
+        group.leafCount = countOutlineLeaves(group.nodes);
+        return group;
+    });
+};
+
+const outlineNodeContainsChapter = (node: ChapterOutlineNode, chapterNum?: string): boolean => {
+    if (!chapterNum) {
+        return false;
+    }
+
+    if (node.kind === 'leaf') {
+        return node.chapterNum === chapterNum;
+    }
+
+    return node.children.some((child) => outlineNodeContainsChapter(child, chapterNum));
+};
+
+const outlineNodesContainChapter = (nodes: ChapterOutlineNode[], chapterNum?: string) => nodes.some((node) => outlineNodeContainsChapter(node, chapterNum));
+
+const getHierarchyBadgeLabel = (depth: number) => {
+    if (depth === 0) {
+        return '편';
+    }
+
+    if (depth === 1) {
+        return '장';
+    }
+
+    return '절';
+};
 
 const DefaultVerseRedirect = () => {
     const { chapters, loading } = useYogaData();
@@ -59,38 +200,44 @@ const DefaultVerseRedirect = () => {
 const ContextPillPicker = ({
     chapterNum,
     verseNum,
-    chapterGroups,
+    outlineGroups,
     verseOptionsByChapter,
+    currentOutlinePath,
     onCommitSelection,
 }: ContextPillPickerProps) => {
     const [isOpen, setIsOpen] = useState(false);
     const [draftChapterNum, setDraftChapterNum] = useState(chapterNum ?? '');
     const [draftVerseNum, setDraftVerseNum] = useState(verseNum ?? '');
     const [activeGroupTitle, setActiveGroupTitle] = useState('');
+    const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
     const rootRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const panelRef = useRef<HTMLDivElement>(null);
     const verseSelectRef = useRef<HTMLSelectElement>(null);
     const [panelStyle, setPanelStyle] = useState<CSSProperties | null>(null);
 
+    const selectedGroupTitle = useMemo(() => {
+        const matchedGroup = outlineGroups.find((group) => outlineNodesContainChapter(group.nodes, chapterNum));
+        return matchedGroup?.title ?? outlineGroups[0]?.title ?? '';
+    }, [chapterNum, outlineGroups]);
+
     useEffect(() => {
         setIsOpen(false);
     }, [chapterNum, verseNum]);
 
     useEffect(() => {
-        const groupTitle = chapterGroups.find((group) => group.chapters.some((chapter) => chapter.value === chapterNum))?.title ?? chapterGroups[0]?.title ?? '';
         if (!isOpen) {
-            setActiveGroupTitle(groupTitle);
+            setActiveGroupTitle(selectedGroupTitle);
             setDraftChapterNum(chapterNum ?? '');
             setDraftVerseNum(verseNum ?? '');
         }
-    }, [chapterGroups, chapterNum, isOpen, verseNum]);
+    }, [chapterNum, isOpen, selectedGroupTitle, verseNum]);
 
     useEffect(() => {
         if (!activeGroupTitle) {
-            setActiveGroupTitle(chapterGroups[0]?.title ?? '');
+            setActiveGroupTitle(outlineGroups[0]?.title ?? '');
         }
-    }, [activeGroupTitle, chapterGroups]);
+    }, [activeGroupTitle, outlineGroups]);
 
     useLayoutEffect(() => {
         if (!isOpen || !triggerRef.current) {
@@ -157,10 +304,30 @@ const ContextPillPicker = ({
         };
     }, [isOpen]);
 
-    const activeGroup = chapterGroups.find((group) => group.title === activeGroupTitle) ?? chapterGroups[0] ?? null;
-    const activeGroupLabel = activeGroup?.title ?? '?????';
-    const activeChapterLabel = chapterNum ? activeGroupLabel : 'Select chapter';
-    const activeVerseLabel = verseNum ? verseNum + '?' : 'Select verse';
+    useEffect(() => {
+        const activeGroup = outlineGroups.find((group) => group.title === activeGroupTitle) ?? outlineGroups[0] ?? null;
+        if (!activeGroup) {
+            return;
+        }
+
+        const keys: string[] = [];
+        const collectBranchKeys = (nodes: ChapterOutlineNode[]) => {
+            nodes.forEach((node) => {
+                if (node.kind === 'branch') {
+                    keys.push(node.key);
+                    collectBranchKeys(node.children);
+                }
+            });
+        };
+
+        collectBranchKeys(activeGroup.nodes);
+        setExpandedKeys(keys);
+    }, [activeGroupTitle, outlineGroups]);
+
+    const activeGroup = outlineGroups.find((group) => group.title === activeGroupTitle) ?? outlineGroups[0] ?? null;
+    const activeGroupLabel = activeGroup?.title ?? '보리도등론';
+    const activeChapterLabel = currentOutlinePath.length > 0 ? currentOutlinePath.join(' / ') : activeGroupLabel;
+    const activeVerseLabel = verseNum ? verseNum + '절' : '절 선택';
     const draftVerseOptions = draftChapterNum ? verseOptionsByChapter[draftChapterNum] ?? [] : [];
 
     const selectClassName =
@@ -172,7 +339,109 @@ const ContextPillPicker = ({
         window.requestAnimationFrame(() => verseSelectRef.current?.focus());
     };
 
-    const visibleGroupChapters = activeGroup?.chapters ?? [];
+    const renderNodes = (nodes: ChapterOutlineNode[], depth = 0): React.ReactNode =>
+        nodes.map((node) => {
+            if (node.kind === 'branch') {
+                const isSelected = outlineNodeContainsChapter(node, draftChapterNum);
+                const isExpanded = expandedKeys.includes(node.key) || isSelected;
+                const hierarchyLabel = getHierarchyBadgeLabel(depth);
+
+                return (
+                    <section
+                        key={node.key}
+                        className={
+                            'rounded-[1.35rem] border p-3 transition-all duration-300 ' +
+                            (depth === 0
+                                ? 'border-gold-primary/22 bg-gold-primary/6 shadow-[0_12px_28px_-22px_rgba(166,139,92,0.35)] dark:border-gold-light/20 dark:bg-gold-light/8'
+                                : 'border-gold-border/12 bg-white/40 dark:border-dark-border/60 dark:bg-white/4')
+                        }
+                    >
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setExpandedKeys((prev) =>
+                                    prev.includes(node.key) ? prev.filter((item) => item !== node.key) : [...prev, node.key],
+                                );
+                            }}
+                            className="flex w-full items-start gap-3 text-left"
+                        >
+                            <div className="flex min-w-0 flex-1 items-start gap-2.5">
+                                <span
+                                    className={
+                                        'mt-0.5 inline-flex shrink-0 items-center rounded-full border px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.22em] ' +
+                                        (depth === 0
+                                            ? 'border-gold-primary/18 bg-white/90 text-gold-primary dark:border-gold-light/18 dark:bg-white/10 dark:text-gold-light'
+                                            : 'border-gold-border/14 bg-white/72 text-text-secondary dark:border-dark-border/60 dark:bg-white/8 dark:text-dark-text-secondary')
+                                    }
+                                >
+                                    {hierarchyLabel}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                    <span
+                                        className={
+                                            'block truncate font-semibold text-text-primary dark:text-dark-text-primary ' +
+                                            (depth === 0 ? 'text-[14px] tracking-[0.03em]' : 'text-[13px] tracking-[0.02em]')
+                                        }
+                                    >
+                                        {node.title}
+                                    </span>
+                                    <span className="mt-1 block text-[9px] font-medium uppercase tracking-[0.24em] text-text-secondary/68 dark:text-dark-text-secondary/68">
+                                        {node.path.join(' / ')}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2">
+                                <span className="rounded-full border border-gold-border/16 bg-gold-surface/70 px-2.5 py-1 text-[10px] font-semibold tracking-[0.1em] text-gold-primary dark:border-dark-border/60 dark:bg-white/6 dark:text-gold-light">
+                                    {node.leafCount}
+                                </span>
+                                <ChevronDown
+                                    className={
+                                        'h-4 w-4 text-gold-primary transition-transform duration-300 dark:text-gold-light ' +
+                                        (isExpanded ? 'rotate-180' : '')
+                                    }
+                                />
+                            </div>
+                        </button>
+
+                        {isExpanded ? (
+                            <div className={'mt-3 space-y-2 ' + (depth === 0 ? 'pl-1' : 'border-l border-gold-border/10 pl-3 dark:border-dark-border/50')}>
+                                {renderNodes(node.children, depth + 1)}
+                            </div>
+                        ) : null}
+                    </section>
+                );
+            }
+
+            const isSelected = draftChapterNum === node.chapterNum;
+
+            return (
+                <button
+                    key={node.key}
+                    type="button"
+                    onClick={() => handleChapterSelect(node.chapterNum)}
+                    className={
+                        'flex w-full items-center justify-between gap-3 rounded-[1rem] border px-3 py-2.5 text-left transition-all duration-300 ' +
+                        (isSelected
+                            ? 'border-gold-primary/24 bg-white/92 shadow-[0_10px_24px_-20px_rgba(166,139,92,0.6)] dark:border-gold-light/18 dark:bg-white/10'
+                            : 'border-transparent bg-white/55 hover:border-gold-border/18 hover:bg-white/82 dark:bg-white/5 dark:hover:bg-white/8')
+                    }
+                >
+                    <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-medium text-text-primary dark:text-dark-text-primary">
+                            {node.label}
+                        </span>
+                        {node.path.length > 0 ? (
+                            <span className="mt-1 block text-[9px] font-medium uppercase tracking-[0.22em] text-text-secondary/68 dark:text-dark-text-secondary/68">
+                                {node.path.join(' / ')}
+                            </span>
+                        ) : null}
+                    </span>
+                    <span className="shrink-0 rounded-full border border-gold-border/18 bg-gold-surface/70 px-2.5 py-1 text-[10px] font-semibold tracking-[0.12em] text-gold-primary dark:border-dark-border/60 dark:bg-white/5 dark:text-gold-light">
+                        {node.verseCount}
+                    </span>
+                </button>
+            );
+        });
 
     const panel = isOpen ? (
         <div
@@ -191,8 +460,26 @@ const ContextPillPicker = ({
                 </span>
             </div>
 
+            {currentOutlinePath.length > 0 ? (
+                <div className="mb-3 flex flex-wrap gap-1.5 rounded-[1.2rem] border border-gold-border/10 bg-white/34 p-2 dark:border-dark-border/60 dark:bg-white/4">
+                    {currentOutlinePath.map((segment, index) => (
+                        <span
+                            key={segment + '-' + index}
+                            className={
+                                'rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-[0.08em] ' +
+                                (index === 0
+                                    ? 'border-gold-primary/18 bg-gold-primary/10 text-gold-primary dark:border-gold-light/18 dark:bg-gold-light/10 dark:text-gold-light'
+                                    : 'border-gold-border/12 bg-white/78 text-text-secondary dark:border-dark-border/60 dark:bg-white/6 dark:text-dark-text-secondary')
+                            }
+                        >
+                            {segment}
+                        </span>
+                    ))}
+                </div>
+            ) : null}
+
             <div className="mb-3 grid grid-cols-2 gap-2 rounded-[1.25rem] border border-gold-border/10 bg-white/30 p-1.5 dark:border-dark-border/60 dark:bg-white/4">
-                {chapterGroups.map((group) => {
+                {outlineGroups.map((group) => {
                     const isSelected = group.title === activeGroupLabel;
 
                     return (
@@ -208,50 +495,25 @@ const ContextPillPicker = ({
                                     : 'text-text-secondary/75 hover:bg-white/72 hover:text-text-primary dark:text-dark-text-secondary dark:hover:bg-white/8 dark:hover:text-dark-text-primary')
                             }
                         >
-                            <span className="block text-[9px] font-semibold uppercase tracking-[0.24em]">
-                                {group.title}
-                            </span>
+                            <span className="block text-[9px] font-semibold uppercase tracking-[0.24em]">{group.title}</span>
+                            <span className="mt-1.5 block text-[9px] font-medium tracking-[0.16em] opacity-70">{group.leafCount}</span>
                         </button>
                     );
                 })}
             </div>
 
             <div className="max-h-[min(58vh,30rem)] space-y-3 overflow-y-auto pr-1">
-                <section className="rounded-[1.35rem] border p-2.5 transition-all duration-300 border-gold-primary/22 bg-gold-primary/6 shadow-[0_12px_28px_-22px_rgba(166,139,92,0.35)] dark:border-gold-light/22 dark:bg-gold-light/8">
+                <section className="rounded-[1.35rem] border border-gold-primary/22 bg-gold-primary/6 p-2.5 shadow-[0_12px_28px_-22px_rgba(166,139,92,0.35)] transition-all duration-300 dark:border-gold-light/22 dark:bg-gold-light/8">
                     <div className="flex items-center justify-between gap-3 px-1.5 pt-0.5">
                         <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-gold-primary dark:text-gold-light">
                             {activeGroupLabel}
                         </span>
+                        <span className="rounded-full border border-gold-border/16 bg-white/70 px-2.5 py-1 text-[9px] font-semibold tracking-[0.14em] text-text-secondary dark:border-dark-border/60 dark:bg-white/6 dark:text-dark-text-secondary">
+                            {activeGroup?.leafCount ?? 0}
+                        </span>
                     </div>
 
-                    <div className="mt-2 space-y-1.5">
-                        {visibleGroupChapters.map((chapter) => {
-                            const isSelected = draftChapterNum === chapter.value;
-
-                            return (
-                                <button
-                                    key={chapter.value}
-                                    type="button"
-                                    onClick={() => handleChapterSelect(chapter.value)}
-                                    className={
-                                        'flex w-full items-center justify-between gap-3 rounded-[1rem] border px-3 py-2 text-left transition-all duration-300 ' +
-                                        (isSelected
-                                            ? 'border-gold-primary/24 bg-white/92 shadow-[0_10px_24px_-20px_rgba(166,139,92,0.6)] dark:border-gold-light/18 dark:bg-white/10'
-                                            : 'border-transparent bg-white/55 hover:border-gold-border/18 hover:bg-white/82 dark:bg-white/5 dark:hover:bg-white/8')
-                                    }
-                                >
-                                    <span className="min-w-0">
-                                        <span className="block truncate text-[13px] font-medium text-text-primary dark:text-dark-text-primary">
-                                            {chapter.label}
-                                        </span>
-                                    </span>
-                                    <span className="shrink-0 rounded-full border border-gold-border/18 bg-gold-surface/70 px-2.5 py-1 text-[10px] font-semibold tracking-[0.12em] text-gold-primary dark:border-dark-border/60 dark:bg-white/5 dark:text-gold-light">
-                                        {chapter.count}
-                                    </span>
-                                </button>
-                            );
-                        })}
-                    </div>
+                    <div className="mt-3 space-y-2.5">{activeGroup ? renderNodes(activeGroup.nodes) : null}</div>
                 </section>
             </div>
 
@@ -305,6 +567,7 @@ const ContextPillPicker = ({
         </div>
     );
 };
+
 const MainLayout = () => {
     const location = useLocation();
     const navigate = useNavigate();
@@ -316,29 +579,7 @@ const MainLayout = () => {
     const desktopGridColumns = isVerseView ? getDesktopVerseColumns(isDesktopSidebarOpen, false) : undefined;
     const currentChapterNumber = isVerseView && chapterNum ? Number.parseInt(chapterNum, 10) : null;
 
-    const chapterGroups = useMemo(
-        () =>
-            chapters.reduce<ChapterGroup[]>((groups, chapter) => {
-                const groupTitle = chapter.meta.description || chapter.meta.name_korean || ('Chapter ' + chapter.chapter);
-                const lastGroup = groups[groups.length - 1];
-
-                if (!lastGroup || lastGroup.title !== groupTitle) {
-                    groups.push({
-                        title: groupTitle,
-                        chapters: [],
-                    });
-                }
-
-                groups[groups.length - 1].chapters.push({
-                    value: String(chapter.chapter),
-                    label: chapter.meta.name_korean,
-                    count: chapter.meta.sutraCount,
-                });
-
-                return groups;
-            }, []),
-        [chapters],
-    );
+    const outlineGroups = useMemo(() => buildOutlineGroups(chapters), [chapters]);
 
     const verseOptionsByChapter = useMemo(
         () =>
@@ -363,20 +604,34 @@ const MainLayout = () => {
         [chapters],
     );
 
+    const currentOutlinePath = useMemo(() => {
+        if (!currentChapterNumber) {
+            return [];
+        }
+
+        const currentChapter = chapters.find((chapter) => chapter.chapter === currentChapterNumber);
+        if (!currentChapter) {
+            return [];
+        }
+
+        return getChapterOutlinePath(currentChapter).displayPath;
+    }, [chapters, currentChapterNumber]);
+
     const selectionControls =
-        isVerseView && chapterGroups.length > 0 && currentChapterNumber !== null ? (
+        isVerseView && outlineGroups.length > 0 && currentChapterNumber !== null ? (
             <ContextPillPicker
                 chapterNum={chapterNum}
                 verseNum={verseNum}
-                chapterGroups={chapterGroups}
+                outlineGroups={outlineGroups}
                 verseOptionsByChapter={verseOptionsByChapter}
+                currentOutlinePath={currentOutlinePath}
                 onCommitSelection={(nextChapter, nextVerse) => navigate('/chapter/' + nextChapter + '/verse/' + nextVerse)}
             />
         ) : undefined;
 
     return (
         <AppShell
-            header={isVerseView ? <Header title="?????(?????)" showSidebarToggle selectionControls={selectionControls} /> : undefined}
+            header={isVerseView ? <Header title="보리도등론" showSidebarToggle selectionControls={selectionControls} /> : undefined}
             sidebar={isVerseView ? <Sidebar /> : undefined}
             isMobilePanelOpen={isVerseView && isSidebarOpen}
             desktopGridColumns={desktopGridColumns}
@@ -409,6 +664,7 @@ const MainLayout = () => {
         </AppShell>
     );
 };
+
 function App() {
     return (
         <Router>
