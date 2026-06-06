@@ -1,6 +1,6 @@
-# Yoga
+# LAMP
 
-Yoga is a React-based reading app for the Yoga Sutras. It brings together Sanskrit text, pronunciation, multiple translations, word meanings, audio, and a commentary study panel in one interface.
+LAMP is a React-based reading app for Buddhist study text. It brings together the reading view, chapter navigation, verse selection, and commentary study panel in one interface.
 
 ## Stack
 
@@ -49,13 +49,36 @@ This is a static build.
 
 - Build command: `npm run build`
 - Output directory: `dist`
+- Cloudflare Pages build output dir: `dist`
+- GitHub Actions deploy script: `npm run deploy:pages`
 
-Before deployment:
+## Cloudflare Pages
+
+This repo is set up for Cloudflare Pages deployments from GitHub Actions.
+
+Workflow:
+
+- push to `main` or run the workflow manually
+- build the app with `npm run build`
+- deploy the `dist` directory with `wrangler pages deploy`
+
+Required GitHub secrets:
+
+- `CLOUDFLARE_ACCOUNT_ID`
+- `CLOUDFLARE_API_TOKEN`
+
+Before deployment, make sure:
 
 - confirm `public/reading-data.json` is current
 - run `npm run typecheck`
 - run `npm run test -- --run`
 - run `npm run build`
+
+If you want to deploy locally, set the same Cloudflare environment variables and run:
+
+```bash
+npm run deploy:pages
+```
 
 ## Notes
 
