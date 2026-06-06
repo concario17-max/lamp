@@ -430,11 +430,6 @@ const ContextPillPicker = ({
                         <span className="block truncate text-[13px] font-medium text-text-primary dark:text-dark-text-primary">
                             {node.label}
                         </span>
-                        {node.path.length > 0 ? (
-                            <span className="mt-1 block text-[9px] font-medium uppercase tracking-[0.22em] text-text-secondary/68 dark:text-dark-text-secondary/68">
-                                {node.path.join(' / ')}
-                            </span>
-                        ) : null}
                     </span>
                     <span className="shrink-0 rounded-full border border-gold-border/18 bg-gold-surface/70 px-2.5 py-1 text-[10px] font-semibold tracking-[0.12em] text-gold-primary dark:border-dark-border/60 dark:bg-white/5 dark:text-gold-light">
                         {node.verseCount}
