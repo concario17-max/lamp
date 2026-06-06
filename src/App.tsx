@@ -166,18 +166,6 @@ const outlineNodeContainsChapter = (node: ChapterOutlineNode, chapterNum?: strin
 
 const outlineNodesContainChapter = (nodes: ChapterOutlineNode[], chapterNum?: string) => nodes.some((node) => outlineNodeContainsChapter(node, chapterNum));
 
-const getHierarchyBadgeLabel = (depth: number) => {
-    if (depth === 0) {
-        return '편';
-    }
-
-    if (depth === 1) {
-        return '장';
-    }
-
-    return '절';
-};
-
 const DefaultVerseRedirect = () => {
     const { chapters, loading } = useYogaData();
 
@@ -327,7 +315,7 @@ const ContextPillPicker = ({
     const activeGroup = outlineGroups.find((group) => group.title === activeGroupTitle) ?? outlineGroups[0] ?? null;
     const activeGroupLabel = activeGroup?.title ?? '보리도등론';
     const activeChapterLabel = currentOutlinePath.length > 0 ? currentOutlinePath.join(' / ') : activeGroupLabel;
-    const activeVerseLabel = verseNum ? verseNum + '절' : '절 선택';
+    const activeVerseLabel = verseNum ?? '선택';
     const draftVerseOptions = draftChapterNum ? verseOptionsByChapter[draftChapterNum] ?? [] : [];
 
     const selectClassName =
@@ -344,7 +332,6 @@ const ContextPillPicker = ({
             if (node.kind === 'branch') {
                 const isSelected = outlineNodeContainsChapter(node, draftChapterNum);
                 const isExpanded = expandedKeys.includes(node.key) || isSelected;
-                const hierarchyLabel = getHierarchyBadgeLabel(depth);
 
                 return (
                     <section
@@ -358,34 +345,22 @@ const ContextPillPicker = ({
                     >
                         <button
                             type="button"
-                            onClick={() => {
-                                setExpandedKeys((prev) =>
-                                    prev.includes(node.key) ? prev.filter((item) => item !== node.key) : [...prev, node.key],
-                                );
-                            }}
+                        onClick={() => {
+                            setExpandedKeys((prev) =>
+                                prev.includes(node.key) ? prev.filter((item) => item !== node.key) : [...prev, node.key],
+                            );
+                        }}
                             className="flex w-full items-start gap-3 text-left"
                         >
-                            <div className="flex min-w-0 flex-1 items-start gap-2.5">
+                            <div className="min-w-0 flex-1">
                                 <span
                                     className={
-                                        'mt-0.5 inline-flex shrink-0 items-center rounded-full border px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.22em] ' +
-                                        (depth === 0
-                                            ? 'border-gold-primary/18 bg-white/90 text-gold-primary dark:border-gold-light/18 dark:bg-white/10 dark:text-gold-light'
-                                            : 'border-gold-border/14 bg-white/72 text-text-secondary dark:border-dark-border/60 dark:bg-white/8 dark:text-dark-text-secondary')
+                                        'block truncate font-semibold text-text-primary dark:text-dark-text-primary ' +
+                                        (depth === 0 ? 'text-[14px] tracking-[0.03em]' : 'text-[13px] tracking-[0.02em]')
                                     }
                                 >
-                                    {hierarchyLabel}
+                                    {node.title}
                                 </span>
-                                <div className="min-w-0 flex-1">
-                                    <span
-                                        className={
-                                            'block truncate font-semibold text-text-primary dark:text-dark-text-primary ' +
-                                            (depth === 0 ? 'text-[14px] tracking-[0.03em]' : 'text-[13px] tracking-[0.02em]')
-                                        }
-                                    >
-                                        {node.title}
-                                    </span>
-                                </div>
                             </div>
                             <ChevronDown
                                 className={
