@@ -1,4 +1,4 @@
-import { CSSProperties, Suspense, lazy, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { CSSProperties, Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { BrowserRouter as Router, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { createPortal } from 'react-dom';
@@ -137,6 +137,20 @@ const ContextPillPicker = ({
         : `제${chapterNum}장`;
     const activeVerseLabel = verseNum ? `${verseNum}절` : '';
 
+    const groupedChapters = useMemo(() => {
+        const groups: { description: string; chapters: YogaChapter[] }[] = [];
+        chapters.forEach((ch) => {
+            const desc = ch.meta.description || '';
+            let group = groups.find((g) => g.description === desc);
+            if (!group) {
+                group = { description: desc, chapters: [] };
+                groups.push(group);
+            }
+            group.chapters.push(ch);
+        });
+        return groups;
+    }, [chapters]);
+
     const panel = isOpen ? (
         <div
             role="dialog"
@@ -154,73 +168,93 @@ const ContextPillPicker = ({
                 </span>
             </div>
 
-            <div className="max-h-[380px] overflow-y-auto space-y-2.5 pr-1.5 custom-scrollbar">
-                {chapters.map((ch) => {
-                    const isCurrentChapter = String(ch.chapter) === chapterNum;
-                    const isExpanded = expandedChapter === ch.chapter;
-                    
-                    const displayChapterTitle = ch.chapter === 0 || ch.meta.name_korean.startsWith('부록')
-                        ? ch.meta.name_korean
-                        : `제${ch.chapter}장 ${ch.meta.name_korean}`;
+            <div className="max-h-[380px] overflow-y-auto space-y-4 pr-1.5 custom-scrollbar">
+                {groupedChapters.map((group) => (
+                    <div key={group.description || 'other'} className="space-y-2">
+                        {group.description && (
+                            <div className="px-2 text-[10px] font-bold tracking-[0.12em] text-gold-primary/80 dark:text-gold-light/80 uppercase border-l-2 border-gold-primary/30 pl-2">
+                                {group.description}
+                            </div>
+                        )}
+                        <div className="space-y-2">
+                            {group.chapters.map((ch) => {
+                                const isCurrentChapter = String(ch.chapter) === chapterNum;
+                                const isExpanded = expandedChapter === ch.chapter;
+                                
+                                const displayChapterTitle = ch.chapter === 0 || ch.meta.name_korean.startsWith('부록')
+                                    ? ch.meta.name_korean
+                                    : `제${ch.chapter}장 ${ch.meta.name_korean}`;
 
-                    return (
-                        <div
-                            key={ch.chapter}
-                            className={`rounded-[1.25rem] border transition-all duration-300 ${
-                                isExpanded
-                                    ? 'border-gold-border/25 bg-white/40 dark:border-dark-border/80 dark:bg-white/5 shadow-[0_8px_20px_-12px_rgba(166,139,92,0.15)]'
-                                    : 'border-gold-border/10 bg-white/12 hover:border-gold-border/20 hover:bg-white/25 dark:border-dark-border/40 dark:bg-white/2 dark:hover:bg-white/4'
-                            }`}
-                        >
-                            <button
-                                type="button"
-                                onClick={() => setExpandedChapter(isExpanded ? null : ch.chapter)}
-                                className="flex w-full items-center justify-between px-4 py-3 text-left outline-none cursor-pointer"
-                            >
-                                <span className={`text-[12px] font-semibold tracking-[0.02em] transition-colors duration-250 ${
-                                    isExpanded 
-                                        ? 'text-gold-primary dark:text-gold-light' 
-                                        : 'text-text-primary dark:text-dark-text-primary'
-                                }}`}>
-                                    {displayChapterTitle}
-                                </span>
-                                <span className={`h-2 w-2 rounded-full transition-all duration-300 ${
-                                    isCurrentChapter
-                                        ? 'bg-gold-primary dark:bg-gold-light scale-110 shadow-[0_0_8px_rgba(166,139,92,0.6)]'
-                                        : 'bg-gold-border/30 dark:bg-dark-border/40'
-                                }`} />
-                            </button>
+                                return (
+                                    <div
+                                        key={ch.chapter}
+                                        className={`rounded-[1.25rem] border transition-all duration-300 ${
+                                            isExpanded
+                                                ? 'border-gold-border/25 bg-white/40 dark:border-dark-border/80 dark:bg-white/5 shadow-[0_8px_20px_-12px_rgba(166,139,92,0.15)]'
+                                                : 'border-gold-border/10 bg-white/12 hover:border-gold-border/20 hover:bg-white/25 dark:border-dark-border/40 dark:bg-white/2 dark:hover:bg-white/4'
+                                        }`}
+                                    >
+                                        <button
+                                            type="button"
+                                            onClick={() => setExpandedChapter(isExpanded ? null : ch.chapter)}
+                                            className="flex w-full items-center justify-between px-4 py-3 text-left outline-none cursor-pointer"
+                                        >
+                                            <span className={`text-[12px] font-semibold tracking-[0.02em] transition-colors duration-250 ${
+                                                isExpanded 
+                                                    ? 'text-gold-primary dark:text-gold-light' 
+                                                    : 'text-text-primary dark:text-dark-text-primary'
+                                            }}`}>
+                                                {displayChapterTitle}
+                                            </span>
+                                            <span className={`h-2 w-2 rounded-full transition-all duration-300 ${
+                                                isCurrentChapter
+                                                    ? 'bg-gold-primary dark:bg-gold-light scale-110 shadow-[0_0_8px_rgba(166,139,92,0.6)]'
+                                                    : 'bg-gold-border/30 dark:bg-dark-border/40'
+                                            }`} />
+                                        </button>
 
-                            {isExpanded && (
-                                <div className="border-t border-gold-border/8 px-4 pb-4 pt-3.5 dark:border-dark-border/30">
-                                    <div className="grid grid-cols-6 gap-2">
-                                        {ch.sutras.map((sutra) => {
-                                            const vNum = String(sutra.verse ?? Number.parseInt(sutra.id.split('.')[1], 10));
-                                            const isCurrentVerse = isCurrentChapter && vNum === verseNum;
-                                            return (
-                                                <button
-                                                    key={sutra.id}
-                                                    type="button"
-                                                    onClick={() => {
-                                                        onCommitSelection(String(ch.chapter), vNum);
-                                                        setIsOpen(false);
-                                                    }}
-                                                    className={`h-9 w-full rounded-full text-[10px] font-semibold transition-all duration-200 outline-none flex items-center justify-center cursor-pointer ${
-                                                        isCurrentVerse
-                                                            ? 'bg-gold-primary text-white shadow-[0_4px_12px_-4px_rgba(166,139,92,0.8)] dark:bg-gold-light dark:text-[#2a2116]'
-                                                            : 'bg-white/80 text-text-primary border border-gold-border/10 hover:border-gold-border/25 hover:bg-white hover:shadow-[0_4px_10px_-6px_rgba(0,0,0,0.15)] dark:bg-white/6 dark:text-dark-text-primary dark:border-dark-border/50 dark:hover:bg-white/10'
-                                                    }`}
-                                                >
-                                                    {vNum}절
-                                                </button>
-                                            );
-                                        })}
+                                        {isExpanded && (
+                                            <div className="border-t border-gold-border/8 px-3 pb-3 pt-2.5 dark:border-dark-border/30">
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    {ch.sutras.map((sutra) => {
+                                                        const vNum = String(sutra.verse ?? Number.parseInt(sutra.id.split('.')[1], 10));
+                                                        const isCurrentVerse = isCurrentChapter && vNum === verseNum;
+                                                        return (
+                                                            <button
+                                                                key={sutra.id}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    onCommitSelection(String(ch.chapter), vNum);
+                                                                    setIsOpen(false);
+                                                                }}
+                                                                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all duration-200 outline-none cursor-pointer ${
+                                                                    isCurrentVerse
+                                                                        ? 'bg-gold-primary text-white shadow-[0_4px_12px_-4px_rgba(166,139,92,0.8)] dark:bg-gold-light dark:text-[#2a2116]'
+                                                                        : 'bg-white/80 text-text-primary border border-gold-border/10 hover:border-gold-border/25 hover:bg-white hover:shadow-[0_4px_10px_-6px_rgba(0,0,0,0.15)] dark:bg-white/6 dark:text-dark-text-primary dark:border-dark-border/50 dark:hover:bg-white/10'
+                                                                }`}
+                                                            >
+                                                                <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold ${
+                                                                    isCurrentVerse
+                                                                        ? 'bg-white/20 text-white'
+                                                                        : 'bg-gold-primary/8 text-gold-primary dark:bg-gold-light/8 dark:text-gold-light'
+                                                                }`}>
+                                                                    {vNum}절
+                                                                </span>
+                                                                <span className="truncate text-[11px] font-medium flex-1">
+                                                                    {sutra.title || `${vNum}절 본문`}
+                                                                </span>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
-                            )}
+                                );
+                            })}
                         </div>
-                    );
-                })}
+                    </div>
+                ))}
             </div>
         </div>
     ) : null;

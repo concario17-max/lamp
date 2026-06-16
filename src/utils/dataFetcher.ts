@@ -112,6 +112,7 @@ const normalizeParagraph = (
         id: `${chapterNum}.${verseNumber}`,
         chapter: chapterNum,
         verse: verseNumber,
+        title: paragraph.title || undefined,
         sanskrit: sourceText.tibetan ?? '',
         iast: sourceText.pronunciation ?? '',
         pronunciation: sourceText.pronunciation ?? '',

@@ -38,6 +38,7 @@ export interface YogaSutra {
     id: string; // e.g., "1.1"
     chapter?: number;
     verse?: number;
+    title?: string;
     audio?: string;
     iast?: string;
     "6.bae_uu"?: string;
