@@ -70,13 +70,13 @@ const Header = ({
                     </Link>
                 </div>
 
-                <div className="mt-2 flex w-full flex-col gap-2 border-t border-gold-border/10 pt-2 dark:border-dark-border/50">
-                    <div className="flex flex-wrap items-center gap-2">
+                {selectionControls || showSidebarToggle ? (
+                    <div className="mt-2 flex w-full items-center justify-end gap-2 border-t border-gold-border/10 pt-2 dark:border-dark-border/50">
                         {rightContent}
                         {selectionControls ? <div className="min-w-0 shrink-0">{selectionControls}</div> : null}
-                        <div className="ml-auto flex items-center gap-2">{renderVerseModeToggle()}</div>
+                        {renderVerseModeToggle()}
                     </div>
-                </div>
+                ) : null}
             </div>
 
             <div
@@ -96,12 +96,10 @@ const Header = ({
                     </Link>
                 </div>
 
-                <div className="flex min-w-0 items-center justify-end gap-3 px-5">
-                    <div className="flex items-center gap-1 rounded-[1rem] border border-gold-border/10 bg-shell-main/78 p-0.5 backdrop-blur-sm dark:border-dark-border/60 dark:bg-shell-main-dark/80">
-                        {rightContent}
-                        {selectionControls ? <div className="min-w-0 shrink-0">{selectionControls}</div> : null}
-                        {renderVerseModeToggle()}
-                    </div>
+                <div className="flex min-w-0 items-center justify-end gap-2.5 px-5">
+                    {rightContent}
+                    {selectionControls ? <div className="min-w-0 shrink-0">{selectionControls}</div> : null}
+                    {renderVerseModeToggle()}
                 </div>
             </div>
         </header>
