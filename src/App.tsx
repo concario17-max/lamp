@@ -47,9 +47,7 @@ const ContextPillPicker = ({
     onCommitSelection,
 }: ContextPillPickerProps) => {
     const [isOpen, setIsOpen] = useState(false);
-    const [expandedChapter, setExpandedChapter] = useState<number | null>(
-        chapterNum ? Number.parseInt(chapterNum, 10) : null
-    );
+    const [expandedChapter, setExpandedChapter] = useState<string | null>(null);
     const rootRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const panelRef = useRef<HTMLDivElement>(null);
@@ -61,9 +59,19 @@ const ContextPillPicker = ({
 
     useEffect(() => {
         if (isOpen && chapterNum) {
-            setExpandedChapter(Number.parseInt(chapterNum, 10));
+            const currentCh = chapters.find((c) => String(c.chapter) === chapterNum);
+            if (currentCh) {
+                const rawPath = currentCh.meta.name_english
+                    ? currentCh.meta.name_english.split(' / ').map((s) => s.trim()).filter(Boolean)
+                    : [];
+                let chapterTitle = currentCh.meta.name_korean;
+                if (rawPath.length >= 2) {
+                    chapterTitle = rawPath[1];
+                }
+                setExpandedChapter(chapterTitle);
+            }
         }
-    }, [isOpen, chapterNum]);
+    }, [isOpen, chapterNum, chapters]);
 
     useLayoutEffect(() => {
         if (!isOpen || !triggerRef.current) {
@@ -130,34 +138,94 @@ const ContextPillPicker = ({
     }, [isOpen]);
 
     const activeChapter = chapters.find((c) => String(c.chapter) === chapterNum);
-    const activeGroupLabel = activeChapter?.meta.description || '';
-    const activeChapterLabel = activeChapter
-        ? activeChapter.meta.name_korean
-        : (chapterNum ? `${chapterNum}장` : '');
-
     const activeVerse = activeChapter?.sutras.find((s) => String(s.verse ?? Number.parseInt(s.id.split('.')[1], 10)) === verseNum);
-    const activeVerseLabel = activeVerse?.title 
-        ? activeVerse.title 
-        : (verseNum ? `${verseNum}절` : '');
 
-    const fullPathLabel = [
-        activeGroupLabel,
-        activeChapterLabel,
-        activeVerseLabel
-    ].filter(Boolean).join(' / ');
+    const fullPathLabel = useMemo(() => {
+        if (!activeChapter) {
+            return chapterNum ? `${chapterNum}장` : '';
+        }
+        const rawPath = activeChapter.meta.name_english
+            ? activeChapter.meta.name_english.split(' / ').map((s) => s.trim()).filter(Boolean)
+            : [];
+        
+        let categoryTitle = activeChapter.meta.description || '보리도등론';
+        let chapterTitle = activeChapter.meta.name_korean;
+        let verseTitle = activeVerse?.title || (verseNum ? `${verseNum}절` : '');
 
-    const groupedChapters = useMemo(() => {
-        const groups: { description: string; chapters: YogaChapter[] }[] = [];
-        chapters.forEach((ch) => {
-            const desc = ch.meta.description || '';
-            let group = groups.find((g) => g.description === desc);
-            if (!group) {
-                group = { description: desc, chapters: [] };
-                groups.push(group);
+        if (rawPath.length >= 3) {
+            categoryTitle = rawPath[0];
+            chapterTitle = rawPath[1];
+            if (!activeVerse?.title) {
+                verseTitle = rawPath[2];
             }
-            group.chapters.push(ch);
+        } else if (rawPath.length === 2) {
+            categoryTitle = rawPath[0];
+            chapterTitle = rawPath[1];
+        }
+
+        return [categoryTitle, chapterTitle, verseTitle].filter(Boolean).join(' / ');
+    }, [activeChapter, activeVerse, chapterNum, verseNum]);
+
+    interface GroupedCategory {
+        description: string;
+        chapters: {
+            title: string;
+            chapterNums: number[];
+            sutras: YogaChapter['sutras'];
+        }[];
+    }
+
+    const groupedCategories = useMemo(() => {
+        const categories: GroupedCategory[] = [];
+
+        chapters.forEach((ch) => {
+            const rawPath = ch.meta.name_english
+                ? ch.meta.name_english.split(' / ').map((s) => s.trim()).filter(Boolean)
+                : [];
+
+            let categoryTitle = ch.meta.description || '보리도등론';
+            let chapterTitle = ch.meta.name_korean;
+
+            if (rawPath.length >= 3) {
+                categoryTitle = rawPath[0];
+                chapterTitle = rawPath[1];
+            } else if (rawPath.length === 2) {
+                categoryTitle = rawPath[0];
+                chapterTitle = rawPath[1];
+            }
+
+            let category = categories.find((c) => c.description === categoryTitle);
+            if (!category) {
+                category = { description: categoryTitle, chapters: [] };
+                categories.push(category);
+            }
+
+            let chapter = category.chapters.find((c) => c.title === chapterTitle);
+            if (!chapter) {
+                chapter = {
+                    title: chapterTitle,
+                    chapterNums: [],
+                    sutras: [],
+                };
+                category.chapters.push(chapter);
+            }
+
+            chapter.chapterNums.push(ch.chapter);
+            ch.sutras.forEach((sutra) => {
+                if (!chapter.sutras.some((s) => s.id === sutra.id)) {
+                    let finalTitle = sutra.title;
+                    if (!finalTitle && rawPath.length >= 3) {
+                        finalTitle = rawPath[2];
+                    }
+                    chapter.sutras.push({
+                        ...sutra,
+                        title: finalTitle,
+                    });
+                }
+            });
         });
-        return groups;
+
+        return categories;
     }, [chapters]);
 
     const panel = isOpen ? (
@@ -178,7 +246,7 @@ const ContextPillPicker = ({
             </div>
 
             <div className="max-h-[380px] overflow-y-auto space-y-4 pr-1.5 custom-scrollbar">
-                {groupedChapters.map((group) => (
+                {groupedCategories.map((group) => (
                     <div key={group.description || 'other'} className="space-y-2">
                         {group.description && (
                             <div className="px-2 text-[10px] font-bold tracking-[0.12em] text-gold-primary/80 dark:text-gold-light/80 uppercase border-l-2 border-gold-primary/30 pl-2">
@@ -187,14 +255,12 @@ const ContextPillPicker = ({
                         )}
                         <div className="space-y-2">
                             {group.chapters.map((ch) => {
-                                const isCurrentChapter = String(ch.chapter) === chapterNum;
-                                const isExpanded = expandedChapter === ch.chapter;
-                                
-                                const displayChapterTitle = ch.meta.name_korean;
+                                const isCurrentChapter = ch.chapterNums.includes(Number(chapterNum));
+                                const isExpanded = expandedChapter === ch.title;
 
                                 return (
                                     <div
-                                        key={ch.chapter}
+                                        key={ch.title}
                                         className={`rounded-[1.25rem] border transition-all duration-300 ${
                                             isExpanded
                                                 ? 'border-gold-border/25 bg-white/40 dark:border-dark-border/80 dark:bg-white/5 shadow-[0_8px_20px_-12px_rgba(166,139,92,0.15)]'
@@ -203,7 +269,7 @@ const ContextPillPicker = ({
                                     >
                                         <button
                                             type="button"
-                                            onClick={() => setExpandedChapter(isExpanded ? null : ch.chapter)}
+                                            onClick={() => setExpandedChapter(isExpanded ? null : ch.title)}
                                             className="flex w-full items-center justify-between px-4 py-3 text-left outline-none cursor-pointer"
                                         >
                                             <span className={`text-[12px] font-semibold tracking-[0.02em] transition-colors duration-250 ${
@@ -211,7 +277,7 @@ const ContextPillPicker = ({
                                                     ? 'text-gold-primary dark:text-gold-light' 
                                                     : 'text-text-primary dark:text-dark-text-primary'
                                             }}`}>
-                                                {displayChapterTitle}
+                                                {ch.title}
                                             </span>
                                             <span className={`h-2 w-2 rounded-full transition-all duration-300 ${
                                                 isCurrentChapter
@@ -225,13 +291,14 @@ const ContextPillPicker = ({
                                                 <div className="grid grid-cols-2 gap-2">
                                                     {ch.sutras.map((sutra) => {
                                                         const vNum = String(sutra.verse ?? Number.parseInt(sutra.id.split('.')[1], 10));
-                                                        const isCurrentVerse = isCurrentChapter && vNum === verseNum;
+                                                        const sutraChapterNum = sutra.chapter ?? ch.chapterNums[0];
+                                                        const isCurrentVerse = String(sutraChapterNum) === chapterNum && vNum === verseNum;
                                                         return (
                                                             <button
                                                                 key={sutra.id}
                                                                 type="button"
                                                                 onClick={() => {
-                                                                    onCommitSelection(String(ch.chapter), vNum);
+                                                                    onCommitSelection(String(sutraChapterNum), vNum);
                                                                     setIsOpen(false);
                                                                 }}
                                                                 className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-left transition-all duration-200 outline-none cursor-pointer ${
