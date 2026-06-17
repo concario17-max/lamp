@@ -397,6 +397,47 @@ const ContextPillPicker = ({
                     </div>
                 ))}
             </div>
+
+            {activeChapter && activeChapter.sutras.length > 0 && (
+                <div className="mt-3.5 border-t border-gold-border/12 pt-3.5 dark:border-dark-border/55">
+                    <label className="block rounded-2xl border border-gold-border/10 bg-white/40 p-2.5 transition-all duration-300 hover:border-gold-border/20 dark:border-dark-border/60 dark:bg-white/4">
+                        <span className="mb-1.5 block text-[9px] font-bold uppercase tracking-[0.24em] text-gold-primary/80 dark:text-gold-light/80">
+                            VERSE (절 선택)
+                        </span>
+                        <div className="relative">
+                            <select
+                                value={verseNum || ''}
+                                onChange={(e) => {
+                                    const nextVerse = e.target.value;
+                                    if (nextVerse && chapterNum) {
+                                        onCommitSelection(chapterNum, nextVerse);
+                                        setIsOpen(false);
+                                    }
+                                }}
+                                className="w-full appearance-none rounded-xl border border-gold-border/12 bg-white/80 py-2.5 pl-3.5 pr-10 text-[11px] font-medium text-text-primary outline-none focus:border-gold-primary/40 focus:ring-1 focus:ring-gold-primary/20 dark:border-dark-border/50 dark:bg-white/6 dark:text-dark-text-primary dark:focus:border-gold-light/40 cursor-pointer"
+                            >
+                                <option value="" disabled>
+                                    절을 선택하세요
+                                </option>
+                                {activeChapter.sutras.map((sutra) => {
+                                    const vNum = String(sutra.verse ?? Number.parseInt(sutra.id.split('.')[1], 10));
+                                    const label = sutra.title
+                                        ? (sutra.title.startsWith('문단 ') ? `${vNum}절 (${sutra.title})` : sutra.title)
+                                        : `${vNum}절`;
+                                    return (
+                                        <option key={sutra.id} value={vNum}>
+                                            {label}
+                                        </option>
+                                    );
+                                })}
+                            </select>
+                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5 text-gold-primary/60 dark:text-gold-light/60">
+                                <ChevronDown className="h-4 w-4" />
+                            </div>
+                        </div>
+                    </label>
+                </div>
+            )}
         </div>
     ) : null;
 
