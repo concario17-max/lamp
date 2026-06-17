@@ -27,7 +27,7 @@ type ComicEntry = {
 };
 
 const learningComicIndex = Object.entries(learningComicImages).reduce<Record<string, ComicEntry[]>>((acc, [path, url]) => {
-    const match = path.match(/learning-comic\/(\d+)\/(.+)\.png$/);
+    const match = path.match(/learning-comic\/(?:chapter-)?(\d+)\/(.+)\.png$/);
     if (!match) {
         return acc;
     }
