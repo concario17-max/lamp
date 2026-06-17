@@ -23,6 +23,15 @@ export const getVerseInRangeFromChapters = (
     }
 
     const targetVerseNum = parseInt(verseNum, 10);
+    const firstSutra = chapter.sutras[0];
+    const firstSutraNum = firstSutra ? (firstSutra.verse ?? 1) : 1;
+    if (targetVerseNum < firstSutraNum) {
+        const sutra = chapter.sutras[targetVerseNum - 1];
+        if (sutra) {
+            return sutra;
+        }
+    }
+
     const verseIndex = chapter.sutras.findIndex((sutra, index, sutras) => {
         const sutraNum = sutra.verse ?? parseInt(sutra.id.split('.')[1], 10);
         const nextSutra = sutras[index + 1];

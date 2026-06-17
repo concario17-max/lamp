@@ -105,6 +105,7 @@ const normalizeParagraph = (
     paragraphIndex: number,
     commentaryText?: string,
     bodhiCommentary?: string,
+    globalVerseNumber?: number,
 ): YogaSutra => {
     const sourceText = paragraph.text ?? { tibetan: '', pronunciation: '', english: '', korean: '' };
     const verseNumber = getLocalVerseNumber(paragraph, paragraphIndex);
@@ -112,7 +113,7 @@ const normalizeParagraph = (
     return {
         id: `${chapterNum}.${verseNumber}`,
         chapter: chapterNum,
-        verse: verseNumber,
+        verse: globalVerseNumber ?? verseNumber,
         title: paragraph.title || undefined,
         sanskrit: sourceText.tibetan ?? '',
         iast: sourceText.pronunciation ?? '',
@@ -133,12 +134,20 @@ const normalizeSubchapter = (
     subchapter: ReadingDataSubchapter,
     commentaryText?: string,
     bodhiCommentaries?: Record<string, string>,
+    counterContext?: { runningCount: number },
 ): YogaChapter => {
     const sutras = (subchapter.paragraphs ?? []).map((paragraph, index) => {
         const verseNumber = getLocalVerseNumber(paragraph, index);
         const lookupKey = chapterNum <= 2 ? `bodhi.${chapterNum}.${verseNumber}` : `${chapterNum}.${verseNumber}`;
         const bodhiCommentary = bodhiCommentaries?.[lookupKey];
-        return normalizeParagraph(chapterNum, paragraph, index, commentaryText, bodhiCommentary);
+
+        let globalNum = verseNumber;
+        if (counterContext) {
+            counterContext.runningCount += 1;
+            globalNum = counterContext.runningCount;
+        }
+
+        return normalizeParagraph(chapterNum, paragraph, index, commentaryText, bodhiCommentary, globalNum);
     });
 
     return {
@@ -199,6 +208,7 @@ export const fetchYogaData = async (): Promise<Record<number, YogaChapter>> => {
             }
 
             const commentaryLookup = buildCommentaryLookup(snapshot);
+            const counterContext = { runningCount: 0 };
             const structuredData = flattenSubchapters(snapshot).reduce<Record<number, YogaChapter>>((acc, entry, index) => {
                 const chapterNumber = index + 1;
                 const commentaryIndex = chapterNumber <= 2 ? chapterNumber : chapterNumber - 2;
@@ -210,6 +220,7 @@ export const fetchYogaData = async (): Promise<Record<number, YogaChapter>> => {
                     entry.subchapter,
                     commentaryText,
                     bodhiCommentaries,
+                    counterContext,
                 );
                 return acc;
             }, {});

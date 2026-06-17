@@ -115,7 +115,7 @@ describe('fetchYogaData', () => {
         expect(data[1].sutras[0].translation_en).toBe('English intro');
         expect(data[1].sutras[0].translation_ham).toBe('Korean intro');
         expect(data[2].sutras[0].id).toBe('2.1');
-        expect(data[2].sutras[1].verse).toBe(2);
+        expect(data[2].sutras[1].verse).toBe(3);
         expect(data[3].sutras[0].commentary_en).toMatch(/Commentary section 1/);
     });
 
