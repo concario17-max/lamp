@@ -161,6 +161,15 @@ const ContextPillPicker = ({
         } else if (rawPath.length === 2) {
             categoryTitle = rawPath[0];
             chapterTitle = rawPath[1];
+        } else if (rawPath.length === 1) {
+            const singleTitle = rawPath[0];
+            if (singleTitle.includes('편') || (activeChapter.meta.name_korean && activeChapter.meta.name_korean !== singleTitle)) {
+                categoryTitle = singleTitle;
+                chapterTitle = activeChapter.meta.name_korean;
+            } else {
+                categoryTitle = activeChapter.meta.description || '보리도등론';
+                chapterTitle = singleTitle;
+            }
         }
 
         return [categoryTitle, chapterTitle, verseTitle].filter(Boolean).join(' / ');
@@ -192,6 +201,15 @@ const ContextPillPicker = ({
             } else if (rawPath.length === 2) {
                 categoryTitle = rawPath[0];
                 chapterTitle = rawPath[1];
+            } else if (rawPath.length === 1) {
+                const singleTitle = rawPath[0];
+                if (singleTitle.includes('편') || (ch.meta.name_korean && ch.meta.name_korean !== singleTitle)) {
+                    categoryTitle = singleTitle;
+                    chapterTitle = ch.meta.name_korean;
+                } else {
+                    categoryTitle = ch.meta.description || '보리도등론';
+                    chapterTitle = singleTitle;
+                }
             }
 
             let category = categories.find((c) => c.description === categoryTitle);
