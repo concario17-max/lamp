@@ -152,7 +152,7 @@ const ChapterList = () => {
                                         const verseNumber = String(sutra.verse ?? Number.parseInt(sutra.id.split('.')[1], 10));
                                         return (
                                             <option key={sutra.id} value={verseNumber} className="text-base">
-                                                Verse {verseNumber}
+                                                {isNaN(Number(verseNumber)) ? verseNumber : `Verse ${verseNumber}`}
                                             </option>
                                         );
                                     })}

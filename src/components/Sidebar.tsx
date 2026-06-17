@@ -15,7 +15,8 @@ const Sidebar = () => {
     const verseData = chapterNum && verseNum ? getVerseInRange(chapterNum, verseNum) : null;
 
     const chapterMeta = currentChapter ? String(currentChapter.chapter).padStart(2, '0') : '00';
-    const verseMeta = verseNum ? String(parseInt(verseNum, 10)).padStart(2, '0') : '00';
+    const isNum = verseNum && !isNaN(Number(verseNum));
+    const verseMeta = verseNum ? (isNum ? String(parseInt(verseNum, 10)).padStart(2, '0') : verseNum) : '00';
 
     useEffect(() => {
         const frame = window.requestAnimationFrame(() => setMarkerReady(true));

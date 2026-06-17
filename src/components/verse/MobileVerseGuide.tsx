@@ -15,7 +15,7 @@ export const MobileVerseGuide = React.memo(({ chapterNum, verseNum, koreanText }
                     Verse Guide
                 </span>
                 <span className="text-[10px] font-semibold tracking-[0.16em] text-text-secondary/75 dark:text-dark-text-secondary/70">
-                    {chapterNum}장 / {verseNum}절
+                    {chapterNum}장 / {isNaN(Number(verseNum)) ? verseNum : `${verseNum}절`}
                 </span>
             </div>
             
