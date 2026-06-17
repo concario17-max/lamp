@@ -377,7 +377,7 @@ const ContextPillPicker = ({
                                                                                 ? 'bg-white/20 text-white'
                                                                                 : 'bg-gold-primary/8 text-gold-primary dark:bg-gold-light/8 dark:text-gold-light'
                                                                         }`}>
-                                                                            {btn.verseNum}절
+                                                                            {isNaN(Number(btn.verseNum)) ? btn.verseNum : `${btn.verseNum}절`}
                                                                         </span>
                                                                         <span className="truncate text-[11px] font-medium flex-1">
                                                                             {btn.title}
@@ -420,16 +420,17 @@ const ContextPillPicker = ({
                                     절을 선택하세요
                                 </option>
                                 {activeChapter.sutras.map((sutra) => {
-                                    const vNum = String(sutra.verse ?? Number.parseInt(sutra.id.split('.')[1], 10));
-                                    const label = sutra.title
-                                        ? (sutra.title.startsWith('문단 ') ? `${vNum}절 (${sutra.title})` : sutra.title)
-                                        : `${vNum}절`;
-                                    return (
-                                        <option key={sutra.id} value={vNum}>
-                                            {label}
-                                        </option>
-                                    );
-                                })}
+                                     const vNum = String(sutra.verse ?? Number.parseInt(sutra.id.split('.')[1], 10));
+                                     const isNum = !isNaN(Number(vNum));
+                                     const label = sutra.title
+                                         ? (sutra.title.startsWith('문단 ') ? (isNum ? `${vNum}절 (${sutra.title})` : `${vNum} (${sutra.title})`) : sutra.title)
+                                         : (isNum ? `${vNum}절` : vNum);
+                                     return (
+                                         <option key={sutra.id} value={vNum}>
+                                             {label}
+                                         </option>
+                                     );
+                                 })}
                             </select>
                             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5 text-gold-primary/60 dark:text-gold-light/60">
                                 <ChevronDown className="h-4 w-4" />

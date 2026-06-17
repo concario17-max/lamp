@@ -21,18 +21,20 @@ export const getPreviousSutraTarget = (
     }
 
     if (currentIndex > 0) {
+        const prevSutra = currentChapter.sutras[currentIndex - 1];
         return {
             chapter: currentChapterNumber,
-            verse: String(currentChapter.sutras[currentIndex - 1].verse ?? parseInt(currentChapter.sutras[currentIndex - 1].id.split('.')[1], 10)),
+            verse: String(prevSutra.verse ?? prevSutra.id.split('.')[1]),
         };
     }
 
     if (currentChapterNumber > 1) {
         const previousChapter = allChapters[currentChapterNumber - 1];
         if (previousChapter?.sutras.length) {
+            const lastSutra = previousChapter.sutras[previousChapter.sutras.length - 1];
             return {
                 chapter: currentChapterNumber - 1,
-                verse: String(previousChapter.sutras[previousChapter.sutras.length - 1].verse ?? parseInt(previousChapter.sutras[previousChapter.sutras.length - 1].id.split('.')[1], 10)),
+                verse: String(lastSutra.verse ?? lastSutra.id.split('.')[1]),
             };
         }
     }
@@ -56,18 +58,20 @@ export const getNextSutraTarget = (
     }
 
     if (currentIndex < currentChapter.sutras.length - 1) {
+        const nextSutra = currentChapter.sutras[currentIndex + 1];
         return {
             chapter: currentChapterNumber,
-            verse: String(currentChapter.sutras[currentIndex + 1].verse ?? parseInt(currentChapter.sutras[currentIndex + 1].id.split('.')[1], 10)),
+            verse: String(nextSutra.verse ?? nextSutra.id.split('.')[1]),
         };
     }
 
     if (currentChapterNumber < Object.keys(allChapters).length) {
         const nextChapter = allChapters[currentChapterNumber + 1];
         if (nextChapter?.sutras.length) {
+            const firstSutra = nextChapter.sutras[0];
             return {
                 chapter: currentChapterNumber + 1,
-                verse: String(nextChapter.sutras[0].verse ?? parseInt(nextChapter.sutras[0].id.split('.')[1], 10)),
+                verse: String(firstSutra.verse ?? firstSutra.id.split('.')[1]),
             };
         }
     }

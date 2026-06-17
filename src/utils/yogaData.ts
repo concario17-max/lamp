@@ -22,10 +22,18 @@ export const getVerseInRangeFromChapters = (
         return null;
     }
 
+    // 만약 verseNum이 숫자가 아니라면 ('도입부', '결어' 등), 정확히 일치하는 sutra를 찾아서 리턴함
+    if (isNaN(Number(verseNum))) {
+        const found = chapter.sutras.find((s) => String(s.verse) === verseNum);
+        if (found) {
+            return found;
+        }
+    }
+
     const targetVerseNum = parseInt(verseNum, 10);
     const firstSutra = chapter.sutras[0];
-    const firstSutraNum = firstSutra ? (firstSutra.verse ?? 1) : 1;
-    if (targetVerseNum < firstSutraNum) {
+    const firstSutraNum = firstSutra && typeof firstSutra.verse === 'number' ? firstSutra.verse : 1;
+    if (!isNaN(targetVerseNum) && targetVerseNum < firstSutraNum) {
         const sutra = chapter.sutras[targetVerseNum - 1];
         if (sutra) {
             return sutra;
@@ -33,10 +41,10 @@ export const getVerseInRangeFromChapters = (
     }
 
     const verseIndex = chapter.sutras.findIndex((sutra, index, sutras) => {
-        const sutraNum = sutra.verse ?? parseInt(sutra.id.split('.')[1], 10);
+        const sutraNum = typeof sutra.verse === 'number' ? sutra.verse : parseInt(sutra.id.split('.')[1], 10);
         const nextSutra = sutras[index + 1];
         if (nextSutra) {
-            const nextNum = nextSutra.verse ?? parseInt(nextSutra.id.split('.')[1], 10);
+            const nextNum = typeof nextSutra.verse === 'number' ? nextSutra.verse : parseInt(nextSutra.id.split('.')[1], 10);
             return sutraNum <= targetVerseNum && targetVerseNum < nextNum;
         }
 
@@ -49,12 +57,20 @@ export const getVerseInRangeFromChapters = (
 export const getVerseRangeText = (chapter: YogaChapter, sutra: YogaSutra): string => {
     const currentIndex = chapter.sutras.findIndex((entry) => entry.id === sutra.id);
     const nextSutra = chapter.sutras[currentIndex + 1];
-    const currentNum = sutra.verse ?? parseInt(sutra.id.split('.')[1], 10);
+    
+    const verseVal = sutra.verse ?? parseInt(sutra.id.split('.')[1], 10);
+    if (typeof verseVal === 'string') {
+        return verseVal;
+    }
+
+    const currentNum = verseVal;
 
     if (nextSutra) {
-        const nextNum = nextSutra.verse ?? parseInt(nextSutra.id.split('.')[1], 10);
-        if (nextNum > currentNum + 1) {
-            return `${currentNum}-${nextNum - 1}`;
+        const nextVerseVal = nextSutra.verse ?? parseInt(nextSutra.id.split('.')[1], 10);
+        if (typeof nextVerseVal === 'number') {
+            if (nextVerseVal > currentNum + 1) {
+                return `${currentNum}-${nextVerseVal - 1}`;
+            }
         }
     }
 

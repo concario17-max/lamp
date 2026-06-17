@@ -37,7 +37,7 @@ export interface CompoundToken {
 export interface YogaSutra {
     id: string; // e.g., "1.1"
     chapter?: number;
-    verse?: number;
+    verse?: number | string;
     title?: string;
     audio?: string;
     iast?: string;

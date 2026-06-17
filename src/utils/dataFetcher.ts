@@ -105,7 +105,7 @@ const normalizeParagraph = (
     paragraphIndex: number,
     commentaryText?: string,
     bodhiCommentary?: string,
-    globalVerseNumber?: number,
+    globalVerseNumber?: number | string,
 ): YogaSutra => {
     const sourceText = paragraph.text ?? { tibetan: '', pronunciation: '', english: '', korean: '' };
     const verseNumber = getLocalVerseNumber(paragraph, paragraphIndex);
@@ -141,10 +141,23 @@ const normalizeSubchapter = (
         const lookupKey = chapterNum <= 2 ? `bodhi.${chapterNum}.${verseNumber}` : `${chapterNum}.${verseNumber}`;
         const bodhiCommentary = bodhiCommentaries?.[lookupKey];
 
-        let globalNum = verseNumber;
-        if (counterContext) {
-            counterContext.runningCount += 1;
-            globalNum = counterContext.runningCount;
+        let globalNum: number | string = verseNumber;
+        if (chapterNum === 1) {
+            globalNum = '도입부';
+        } else if (chapterNum === 2) {
+            if (index === (subchapter.paragraphs ?? []).length - 1) {
+                globalNum = '결어';
+            } else {
+                globalNum = index + 1;
+            }
+        } else {
+            if (counterContext) {
+                if (chapterNum === 3 && index === 0) {
+                    counterContext.runningCount = 70;
+                }
+                counterContext.runningCount += 1;
+                globalNum = counterContext.runningCount;
+            }
         }
 
         return normalizeParagraph(chapterNum, paragraph, index, commentaryText, bodhiCommentary, globalNum);

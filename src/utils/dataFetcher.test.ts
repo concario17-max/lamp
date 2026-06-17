@@ -110,12 +110,14 @@ describe('fetchYogaData', () => {
         expect(data[1].chapter).toBe(1);
         expect(data[1].meta.name_korean).toBe('Intro');
         expect(data[1].sutras[0].id).toBe('1.1');
-        expect(data[1].sutras[0].verse).toBe(1);
+        expect(data[1].sutras[0].verse).toBe('도입부');
         expect(data[1].sutras[0].sanskrit).toBe('Tibetan text');
         expect(data[1].sutras[0].translation_en).toBe('English intro');
         expect(data[1].sutras[0].translation_ham).toBe('Korean intro');
         expect(data[2].sutras[0].id).toBe('2.1');
-        expect(data[2].sutras[1].verse).toBe(3);
+        expect(data[2].sutras[0].verse).toBe(1);
+        expect(data[2].sutras[1].verse).toBe('결어');
+        expect(data[3].sutras[0].verse).toBe(71);
         expect(data[3].sutras[0].commentary_en).toMatch(/Commentary section 1/);
     });
 

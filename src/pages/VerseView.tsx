@@ -24,6 +24,7 @@ type ComicEntry = {
     start: number;
     end: number;
     url: string;
+    rawName?: string;
 };
 
 const learningComicIndex = Object.entries(learningComicImages).reduce<Record<string, ComicEntry[]>>((acc, [path, url]) => {
@@ -33,7 +34,8 @@ const learningComicIndex = Object.entries(learningComicImages).reduce<Record<str
     }
 
     const chapter = match[1];
-    const [startText, endText] = match[2].split('-');
+    const filename = match[2];
+    const [startText, endText] = filename.split('-');
     const start = Number.parseInt(startText, 10);
     const end = Number.parseInt(endText ?? startText, 10);
 
@@ -41,7 +43,12 @@ const learningComicIndex = Object.entries(learningComicImages).reduce<Record<str
         acc[chapter] = [];
     }
 
-    acc[chapter].push({ start, end, url });
+    acc[chapter].push({
+        start: Number.isNaN(start) ? -1 : start,
+        end: Number.isNaN(end) ? -1 : end,
+        url,
+        rawName: filename
+    });
     return acc;
 }, {});
 
@@ -55,10 +62,18 @@ const getLearningComicImageUrl = (chapterNum: string, verseNum: string) => {
         return null;
     }
 
-    const verse = Number.parseInt(verseNum, 10);
-    const match = entries.find((entry) => verse >= entry.start && verse <= entry.end);
+    const stringMatch = entries.find((entry) => entry.rawName === verseNum);
+    if (stringMatch) {
+        return stringMatch.url;
+    }
 
-    return match?.url ?? null;
+    const verse = Number.parseInt(verseNum, 10);
+    if (!Number.isNaN(verse)) {
+        const match = entries.find((entry) => entry.start !== -1 && verse >= entry.start && verse <= entry.end);
+        return match?.url ?? null;
+    }
+
+    return null;
 };
 
 const extractCommentaryTitle = (content?: string | null) => {
@@ -218,8 +233,8 @@ const VerseView = () => {
 
         const verseData = getVerseInRange(chapterNum, verseNum);
         if (verseData) {
-            const actualNum = verseData.verse ?? Number.parseInt(verseData.id.split('.')[1], 10);
-            if (actualNum !== Number.parseInt(verseNum, 10)) {
+            const actualNum = verseData.verse ?? verseData.id.split('.')[1];
+            if (String(actualNum) !== String(verseNum)) {
                 navigate(`/chapter/${chapterNum}/verse/${actualNum}`, { replace: true });
             }
         }
@@ -274,7 +289,7 @@ const VerseView = () => {
         return null;
     }
 
-    const verseNumber = verseData.verse ?? Number.parseInt(verseData.id.split('.')[1], 10);
+    const verseNumber = verseData.verse ?? verseData.id.split('.')[1];
     const audioSrc = verseData.audio ?? null;
     const hasAudio = Boolean(audioSrc);
     const verseNavigationControls =
