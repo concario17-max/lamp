@@ -33,6 +33,29 @@ const DefaultVerseRedirect = () => {
     return <Navigate to={`/chapter/${chapterNum}/verse/${verseNum}`} replace />;
 };
 
+const normalizeOutlineSegment = (value: string) => value.trim().replace(/\s+/g, ' ');
+
+// 각 subchapter(또는 chapter)의 name_english와 name_korean을 기반으로 3단계 트리 경로 정보를 파싱함
+const getChapterOutlinePath = (chapter: YogaChapter) => {
+    const englishTitle = chapter.meta.name_english?.trim() ?? '';
+    const koreanTitle = chapter.meta.name_korean?.trim() ?? '';
+    const rawPath = englishTitle
+        .split(' / ')
+        .map(normalizeOutlineSegment)
+        .filter(Boolean);
+
+    const isSingleStructuralHeading = rawPath.length === 1 && englishTitle && koreanTitle && englishTitle !== koreanTitle;
+    const branchPath = rawPath.length > 1 ? rawPath.slice(0, -1) : isSingleStructuralHeading ? [englishTitle] : [];
+    const leafLabel = rawPath.length > 1 ? rawPath[rawPath.length - 1] : isSingleStructuralHeading ? koreanTitle || englishTitle : koreanTitle || englishTitle;
+    const displayPath = rawPath.length > 0 ? rawPath : [leafLabel];
+
+    return {
+        branchPath,
+        displayPath,
+        leafLabel,
+    };
+};
+
 interface ContextPillPickerProps {
     chapterNum?: string;
     verseNum?: string;
@@ -61,12 +84,12 @@ const ContextPillPicker = ({
         if (isOpen && chapterNum) {
             const currentCh = chapters.find((c) => String(c.chapter) === chapterNum);
             if (currentCh) {
-                const rawPath = currentCh.meta.name_english
-                    ? currentCh.meta.name_english.split(' / ').map((s) => s.trim()).filter(Boolean)
-                    : [];
-                let chapterTitle = currentCh.meta.name_korean;
-                if (rawPath.length >= 2) {
-                    chapterTitle = rawPath[1];
+                const { branchPath, leafLabel } = getChapterOutlinePath(currentCh);
+                let chapterTitle = leafLabel;
+                if (branchPath.length >= 2) {
+                    chapterTitle = branchPath[1];
+                } else if (branchPath.length === 1) {
+                    chapterTitle = branchPath[0];
                 }
                 setExpandedChapter(chapterTitle);
             }
@@ -144,72 +167,69 @@ const ContextPillPicker = ({
         if (!activeChapter) {
             return chapterNum ? `${chapterNum}장` : '';
         }
-        const rawPath = activeChapter.meta.name_english
-            ? activeChapter.meta.name_english.split(' / ').map((s) => s.trim()).filter(Boolean)
-            : [];
-        
+
+        const { branchPath, leafLabel } = getChapterOutlinePath(activeChapter);
+
         let categoryTitle = activeChapter.meta.description || '보리도등론';
-        let chapterTitle = activeChapter.meta.name_korean;
+        let chapterTitle = leafLabel;
         let verseTitle = activeVerse?.title || (verseNum ? `${verseNum}절` : '');
 
-        if (rawPath.length >= 3) {
-            categoryTitle = rawPath[0];
-            chapterTitle = rawPath[1];
-            if (!activeVerse?.title) {
-                verseTitle = rawPath[2];
+        if (branchPath.length >= 1) {
+            categoryTitle = branchPath[0];
+        }
+
+        if (branchPath.length >= 2) {
+            chapterTitle = branchPath[1];
+            if (!activeVerse?.title || activeVerse.title.startsWith('문단 ')) {
+                verseTitle = leafLabel;
             }
-        } else if (rawPath.length === 2) {
-            categoryTitle = rawPath[0];
-            chapterTitle = rawPath[1];
-        } else if (rawPath.length === 1) {
-            const singleTitle = rawPath[0];
-            if (singleTitle.includes('편') || (activeChapter.meta.name_korean && activeChapter.meta.name_korean !== singleTitle)) {
-                categoryTitle = singleTitle;
-                chapterTitle = activeChapter.meta.name_korean;
-            } else {
-                categoryTitle = activeChapter.meta.description || '보리도등론';
-                chapterTitle = singleTitle;
+        } else if (branchPath.length === 1) {
+            chapterTitle = branchPath[0];
+            if (!activeVerse?.title || activeVerse.title.startsWith('문단 ')) {
+                verseTitle = leafLabel;
             }
         }
 
         return [categoryTitle, chapterTitle, verseTitle].filter(Boolean).join(' / ');
     }, [activeChapter, activeVerse, chapterNum, verseNum]);
 
+    interface PickerButton {
+        id: string;
+        title: string;
+        chapterNum: string;
+        verseNum: string;
+        branchPathLength: number;
+    }
+
+    interface GroupedChapter {
+        title: string;
+        chapterNums: number[];
+        buttons: PickerButton[];
+    }
+
     interface GroupedCategory {
         description: string;
-        chapters: {
-            title: string;
-            chapterNums: number[];
-            sutras: YogaChapter['sutras'];
-        }[];
+        chapters: GroupedChapter[];
     }
 
     const groupedCategories = useMemo(() => {
         const categories: GroupedCategory[] = [];
 
         chapters.forEach((ch) => {
-            const rawPath = ch.meta.name_english
-                ? ch.meta.name_english.split(' / ').map((s) => s.trim()).filter(Boolean)
-                : [];
+            const { branchPath, leafLabel } = getChapterOutlinePath(ch);
 
+            // 1. 대분류 결정
             let categoryTitle = ch.meta.description || '보리도등론';
-            let chapterTitle = ch.meta.name_korean;
+            if (branchPath.length >= 1) {
+                categoryTitle = branchPath[0];
+            }
 
-            if (rawPath.length >= 3) {
-                categoryTitle = rawPath[0];
-                chapterTitle = rawPath[1];
-            } else if (rawPath.length === 2) {
-                categoryTitle = rawPath[0];
-                chapterTitle = rawPath[1];
-            } else if (rawPath.length === 1) {
-                const singleTitle = rawPath[0];
-                if (singleTitle.includes('편') || (ch.meta.name_korean && ch.meta.name_korean !== singleTitle)) {
-                    categoryTitle = singleTitle;
-                    chapterTitle = ch.meta.name_korean;
-                } else {
-                    categoryTitle = ch.meta.description || '보리도등론';
-                    chapterTitle = singleTitle;
-                }
+            // 2. 중분류 결정
+            let chapterTitle = leafLabel;
+            if (branchPath.length >= 2) {
+                chapterTitle = branchPath[1];
+            } else if (branchPath.length === 1) {
+                chapterTitle = branchPath[0];
             }
 
             let category = categories.find((c) => c.description === categoryTitle);
@@ -223,24 +243,45 @@ const ContextPillPicker = ({
                 chapter = {
                     title: chapterTitle,
                     chapterNums: [],
-                    sutras: [],
+                    buttons: [],
                 };
                 category.chapters.push(chapter);
             }
 
-            chapter.chapterNums.push(ch.chapter);
-            ch.sutras.forEach((sutra) => {
-                if (!chapter.sutras.some((s) => s.id === sutra.id)) {
-                    let finalTitle = sutra.title;
-                    if (!finalTitle && rawPath.length >= 3) {
-                        finalTitle = rawPath[2];
-                    }
-                    chapter.sutras.push({
-                        ...sutra,
-                        title: finalTitle,
+            if (!chapter.chapterNums.includes(ch.chapter)) {
+                chapter.chapterNums.push(ch.chapter);
+            }
+
+            // 3. 소분류 (버튼) 추가
+            if (branchPath.length > 0) {
+                const firstSutra = ch.sutras[0];
+                const firstVerseNum = firstSutra
+                    ? String(firstSutra.verse ?? Number.parseInt(firstSutra.id.split('.')[1], 10))
+                    : '1';
+                
+                if (!chapter.buttons.some((b) => b.id === `subchapter-${ch.chapter}`)) {
+                    chapter.buttons.push({
+                        id: `subchapter-${ch.chapter}`,
+                        title: leafLabel,
+                        chapterNum: String(ch.chapter),
+                        verseNum: firstVerseNum,
+                        branchPathLength: branchPath.length,
                     });
                 }
-            });
+            } else {
+                ch.sutras.forEach((sutra) => {
+                    const vNum = String(sutra.verse ?? Number.parseInt(sutra.id.split('.')[1], 10));
+                    if (!chapter.buttons.some((b) => b.id === sutra.id)) {
+                        chapter.buttons.push({
+                            id: sutra.id,
+                            title: sutra.title || `${vNum}절`,
+                            chapterNum: String(ch.chapter),
+                            verseNum: vNum,
+                            branchPathLength: 0,
+                        });
+                    }
+                });
+            }
         });
 
         return categories;
@@ -307,16 +348,16 @@ const ContextPillPicker = ({
                                         {isExpanded && (
                                             <div className="border-t border-gold-border/8 px-3 pb-3 pt-2.5 dark:border-dark-border/30">
                                                 <div className="grid grid-cols-2 gap-2">
-                                                    {ch.sutras.map((sutra) => {
-                                                        const vNum = String(sutra.verse ?? Number.parseInt(sutra.id.split('.')[1], 10));
-                                                        const sutraChapterNum = sutra.chapter ?? ch.chapterNums[0];
-                                                        const isCurrentVerse = String(sutraChapterNum) === chapterNum && vNum === verseNum;
+                                                    {ch.buttons.map((btn) => {
+                                                        const isCurrentVerse = btn.branchPathLength > 0
+                                                            ? String(btn.chapterNum) === chapterNum
+                                                            : String(btn.chapterNum) === chapterNum && String(btn.verseNum) === verseNum;
                                                         return (
                                                             <button
-                                                                key={sutra.id}
+                                                                key={btn.id}
                                                                 type="button"
                                                                 onClick={() => {
-                                                                    onCommitSelection(String(sutraChapterNum), vNum);
+                                                                    onCommitSelection(btn.chapterNum, btn.verseNum);
                                                                     setIsOpen(false);
                                                                 }}
                                                                 className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-left transition-all duration-200 outline-none cursor-pointer ${
@@ -325,9 +366,9 @@ const ContextPillPicker = ({
                                                                         : 'bg-white/80 text-text-primary border border-gold-border/10 hover:border-gold-border/25 hover:bg-white hover:shadow-[0_4px_10px_-6px_rgba(0,0,0,0.15)] dark:bg-white/6 dark:text-dark-text-primary dark:border-dark-border/50 dark:hover:bg-white/10'
                                                                 }`}
                                                             >
-                                                                {sutra.title ? (
+                                                                {btn.branchPathLength > 0 ? (
                                                                     <span className="truncate text-[11px] font-medium flex-1">
-                                                                        {sutra.title}
+                                                                        {btn.title}
                                                                     </span>
                                                                 ) : (
                                                                     <>
@@ -336,10 +377,10 @@ const ContextPillPicker = ({
                                                                                 ? 'bg-white/20 text-white'
                                                                                 : 'bg-gold-primary/8 text-gold-primary dark:bg-gold-light/8 dark:text-gold-light'
                                                                         }`}>
-                                                                            {vNum}절
+                                                                            {btn.verseNum}절
                                                                         </span>
                                                                         <span className="truncate text-[11px] font-medium flex-1">
-                                                                            {vNum}절 본문
+                                                                            {btn.title}
                                                                         </span>
                                                                     </>
                                                                 )}
