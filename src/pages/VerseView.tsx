@@ -90,7 +90,7 @@ const stripCommentaryTitleBlock = (content?: string | null) => {
         return content ?? null;
     }
 
-    return content.replace(/^#\s+.+?(?:\r?\n){2,}/, '').trimStart();
+    return content.replace(/^#\s+.+?(?:\r?\n)+/, '').trimStart();
 };
 
 const containerVariants: Variants = {
