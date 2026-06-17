@@ -131,11 +131,13 @@ const ContextPillPicker = ({
 
     const activeChapter = chapters.find((c) => String(c.chapter) === chapterNum);
     const activeChapterLabel = activeChapter
-        ? (activeChapter.chapter === 0 || activeChapter.meta.name_korean.startsWith('부록')
-            ? activeChapter.meta.name_korean
-            : `제${activeChapter.chapter}장 ${activeChapter.meta.name_korean}`)
-        : `제${chapterNum}장`;
-    const activeVerseLabel = verseNum ? `${verseNum}절` : '';
+        ? activeChapter.meta.name_korean
+        : (chapterNum ? `${chapterNum}장` : '');
+
+    const activeVerse = activeChapter?.sutras.find((s) => String(s.verse ?? Number.parseInt(s.id.split('.')[1], 10)) === verseNum);
+    const activeVerseLabel = activeVerse?.title 
+        ? activeVerse.title 
+        : (verseNum ? `${verseNum}절` : '');
 
     const groupedChapters = useMemo(() => {
         const groups: { description: string; chapters: YogaChapter[] }[] = [];
@@ -181,9 +183,7 @@ const ContextPillPicker = ({
                                 const isCurrentChapter = String(ch.chapter) === chapterNum;
                                 const isExpanded = expandedChapter === ch.chapter;
                                 
-                                const displayChapterTitle = ch.chapter === 0 || ch.meta.name_korean.startsWith('부록')
-                                    ? ch.meta.name_korean
-                                    : `제${ch.chapter}장 ${ch.meta.name_korean}`;
+                                const displayChapterTitle = ch.meta.name_korean;
 
                                 return (
                                     <div
@@ -227,22 +227,30 @@ const ContextPillPicker = ({
                                                                     onCommitSelection(String(ch.chapter), vNum);
                                                                     setIsOpen(false);
                                                                 }}
-                                                                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all duration-200 outline-none cursor-pointer ${
+                                                                className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-left transition-all duration-200 outline-none cursor-pointer ${
                                                                     isCurrentVerse
                                                                         ? 'bg-gold-primary text-white shadow-[0_4px_12px_-4px_rgba(166,139,92,0.8)] dark:bg-gold-light dark:text-[#2a2116]'
                                                                         : 'bg-white/80 text-text-primary border border-gold-border/10 hover:border-gold-border/25 hover:bg-white hover:shadow-[0_4px_10px_-6px_rgba(0,0,0,0.15)] dark:bg-white/6 dark:text-dark-text-primary dark:border-dark-border/50 dark:hover:bg-white/10'
                                                                 }`}
                                                             >
-                                                                <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold ${
-                                                                    isCurrentVerse
-                                                                        ? 'bg-white/20 text-white'
-                                                                        : 'bg-gold-primary/8 text-gold-primary dark:bg-gold-light/8 dark:text-gold-light'
-                                                                }`}>
-                                                                    {vNum}절
-                                                                </span>
-                                                                <span className="truncate text-[11px] font-medium flex-1">
-                                                                    {sutra.title || `${vNum}절 본문`}
-                                                                </span>
+                                                                {sutra.title ? (
+                                                                    <span className="truncate text-[11px] font-medium flex-1">
+                                                                        {sutra.title}
+                                                                    </span>
+                                                                ) : (
+                                                                    <>
+                                                                        <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold ${
+                                                                            isCurrentVerse
+                                                                                ? 'bg-white/20 text-white'
+                                                                                : 'bg-gold-primary/8 text-gold-primary dark:bg-gold-light/8 dark:text-gold-light'
+                                                                        }`}>
+                                                                            {vNum}절
+                                                                        </span>
+                                                                        <span className="truncate text-[11px] font-medium flex-1">
+                                                                            {vNum}절 본문
+                                                                        </span>
+                                                                    </>
+                                                                )}
                                                             </button>
                                                         );
                                                     })}
