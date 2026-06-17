@@ -130,6 +130,7 @@ const ContextPillPicker = ({
     }, [isOpen]);
 
     const activeChapter = chapters.find((c) => String(c.chapter) === chapterNum);
+    const activeGroupLabel = activeChapter?.meta.description || '';
     const activeChapterLabel = activeChapter
         ? activeChapter.meta.name_korean
         : (chapterNum ? `${chapterNum}장` : '');
@@ -138,6 +139,12 @@ const ContextPillPicker = ({
     const activeVerseLabel = activeVerse?.title 
         ? activeVerse.title 
         : (verseNum ? `${verseNum}절` : '');
+
+    const fullPathLabel = [
+        activeGroupLabel,
+        activeChapterLabel,
+        activeVerseLabel
+    ].filter(Boolean).join(' / ');
 
     const groupedChapters = useMemo(() => {
         const groups: { description: string; chapters: YogaChapter[] }[] = [];
@@ -166,7 +173,7 @@ const ContextPillPicker = ({
                     CONTEXT
                 </span>
                 <span className="flex-1 truncate text-[10px] font-medium tracking-[0.1em] text-text-secondary dark:text-dark-text-secondary">
-                    {activeChapterLabel} {activeVerseLabel ? `/ ${activeVerseLabel}` : ''}
+                    {fullPathLabel}
                 </span>
             </div>
 
@@ -267,7 +274,7 @@ const ContextPillPicker = ({
         </div>
     ) : null;
 
-    const triggerText = activeVerseLabel ? `${activeChapterLabel} / ${activeVerseLabel}` : activeChapterLabel;
+    const triggerText = fullPathLabel;
 
     return (
         <div ref={rootRef} className="relative shrink-0">
