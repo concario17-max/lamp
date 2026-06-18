@@ -27,4 +27,4 @@ def extract_odt_text(odt_path, txt_path):
 if __name__ == "__main__":
     import os
     src_root = "c:/Users/roadsea/Desktop/bori-1"
-    extract_odt_text(os.path.join(src_root, "난처석 2-2.odt"), os.path.join(src_root, "odt_text_2_2.txt"))
+    extract_odt_text(os.path.join(src_root, "난처석 2-3.odt"), os.path.join(src_root, "odt_text_2_3.txt"))
