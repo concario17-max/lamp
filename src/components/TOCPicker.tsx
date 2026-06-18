@@ -1,6 +1,7 @@
 import { CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, ChevronRight, Menu, X, ChevronLeft } from 'lucide-react';
+import { ChevronDown, Menu, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { YogaChapter } from '../types';
 import { getPreviousSutraTarget, getNextSutraTarget } from '../utils/sutraNavigation';
 
@@ -24,6 +25,13 @@ const getChapterOutlinePath = (chapter: YogaChapter) => {
         displayPath,
         leafLabel,
     };
+};
+
+const getTabForCategory = (description: string) => {
+    if (description.includes('난처석') || description.includes('주석')) {
+        return 'commentary';
+    }
+    return 'original';
 };
 
 interface TOCPickerProps {
@@ -61,7 +69,8 @@ export const TOCPicker = ({
     onCommitSelection,
 }: TOCPickerProps) => {
     const [isOpen, setIsOpen] = useState(false);
-    const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
+    const [activeTab, setActiveTab] = useState<'original' | 'commentary'>('original');
+    const [selectedChapter, setSelectedChapter] = useState<GroupedChapter | null>(null);
     
     const rootRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
@@ -87,13 +96,11 @@ export const TOCPicker = ({
         chapters.forEach((ch) => {
             const { branchPath, leafLabel } = getChapterOutlinePath(ch);
 
-            // 1. 대분류 결정
             let categoryTitle = ch.meta.description || '보리도등론';
             if (branchPath.length >= 1) {
                 categoryTitle = branchPath[0];
             }
 
-            // 2. 중분류 결정
             let chapterTitle = leafLabel;
             if (branchPath.length >= 2) {
                 chapterTitle = branchPath[1];
@@ -121,7 +128,6 @@ export const TOCPicker = ({
                 chapter.chapterNums.push(ch.chapter);
             }
 
-            // 3. 소분류 (버튼) 추가
             if (branchPath.length > 0) {
                 const firstSutra = ch.sutras[0];
                 const firstVerseNum = firstSutra
@@ -156,22 +162,27 @@ export const TOCPicker = ({
         return categories;
     }, [chapters]);
 
-    // 초기 로드 시 현재 속해있는 카테고리는 펼치기
+    // 초기 로드 또는 현재 챕터 변경 시 탭 및 챕터 기본값 설정
     useEffect(() => {
-        if (activeChapter) {
+        if (activeChapter && groupedCategories.length > 0) {
             const { branchPath } = getChapterOutlinePath(activeChapter);
             let categoryTitle = activeChapter.meta.description || '보리도등론';
             if (branchPath.length >= 1) {
                 categoryTitle = branchPath[0];
             }
-            setCollapsedCategories(prev => {
-                const next = { ...prev };
-                // 명시적으로 펼쳐짐 상태로 두기 위해 collapsed = false로 만듦
-                next[categoryTitle] = false;
-                return next;
-            });
+            const tab = getTabForCategory(categoryTitle);
+            setActiveTab(tab);
+            
+            // 현재 활성화된 챕터(GroupedChapter)를 찾아서 selectedChapter로 기본 지정
+            const category = groupedCategories.find(c => getTabForCategory(c.description) === tab);
+            if (category) {
+                const groupedCh = category.chapters.find(ch => ch.chapterNums.includes(Number(chapterNum)));
+                if (groupedCh) {
+                    setSelectedChapter(groupedCh);
+                }
+            }
         }
-    }, [activeChapter]);
+    }, [activeChapter, chapterNum, groupedCategories]);
 
     // 패널 닫기 이벤트 핸들러
     useEffect(() => {
@@ -211,7 +222,7 @@ export const TOCPicker = ({
             const rect = triggerRef.current?.getBoundingClientRect();
             if (!rect) return;
 
-            const panelWidth = Math.min(400, window.innerWidth - 24);
+            const panelWidth = Math.min(420, window.innerWidth - 24);
             const left = Math.min(Math.max(rect.left, 12), window.innerWidth - panelWidth - 12);
             const top = rect.bottom + 8;
 
@@ -266,13 +277,16 @@ export const TOCPicker = ({
 
     const totalVerses = activeChapter?.sutras.length || 0;
 
-    // 카테고리 접기/펼치기 토글
-    const toggleCategory = (categoryTitle: string) => {
-        setCollapsedCategories((prev) => ({
-            ...prev,
-            [categoryTitle]: !prev[categoryTitle],
-        }));
-    };
+    // 현재 탭에 필터링된 카테고리들
+    const filteredCategories = useMemo(() => {
+        return groupedCategories.filter((group) => getTabForCategory(group.description) === activeTab);
+    }, [groupedCategories, activeTab]);
+
+    // 선택된 챕터가 subchapter 형태인지 (절 그리드 대신 리스트로 그릴지) 판단
+    const isSubchapterList = useMemo(() => {
+        if (!selectedChapter) return false;
+        return selectedChapter.buttons.some((b) => b.branchPathLength > 0);
+    }, [selectedChapter]);
 
     const panel = isOpen ? (
         <div
@@ -280,10 +294,10 @@ export const TOCPicker = ({
             aria-label="TOC Picker"
             ref={panelRef}
             style={panelStyle ?? undefined}
-            className="z-[60] flex flex-col max-h-[500px] rounded-[1.5rem] border border-gold-border/12 bg-[linear-gradient(180deg,rgba(255,251,241,0.98)_0%,rgba(252,247,237,0.96)_48%,rgba(245,238,228,0.92)_100%)] p-4 shadow-[0_26px_72px_-34px_rgba(0,0,0,0.58)] backdrop-blur-2xl dark:border-dark-border/70 dark:bg-[linear-gradient(180deg,rgba(24,20,15,0.98)_0%,rgba(20,17,13,0.96)_48%,rgba(15,13,10,0.92)_100%)] select-none"
+            className="z-[60] flex flex-col min-h-[380px] max-h-[520px] rounded-[1.5rem] border border-gold-border/12 bg-[linear-gradient(180deg,rgba(255,251,241,0.98)_0%,rgba(252,247,237,0.96)_48%,rgba(245,238,228,0.92)_100%)] p-4 shadow-[0_26px_72px_-34px_rgba(0,0,0,0.58)] backdrop-blur-2xl dark:border-dark-border/70 dark:bg-[linear-gradient(180deg,rgba(24,20,15,0.98)_0%,rgba(20,17,13,0.96)_48%,rgba(15,13,10,0.92)_100%)] select-none overflow-hidden"
         >
             {/* Header */}
-            <div className="mb-3 flex items-center justify-between border-b border-gold-border/12 pb-2.5 dark:border-dark-border/55">
+            <div className="mb-3 flex items-center justify-between border-b border-gold-border/12 pb-2.5 dark:border-dark-border/55 shrink-0">
                 <div className="flex items-center gap-2">
                     <Menu className="h-4 w-4 text-gold-primary dark:text-gold-light" />
                     <span className="text-[12px] font-bold uppercase tracking-[0.15em] text-text-primary dark:text-dark-text-primary">
@@ -293,106 +307,179 @@ export const TOCPicker = ({
                 <button
                     type="button"
                     onClick={() => setIsOpen(false)}
-                    className="rounded-full p-1 hover:bg-gold-primary/8 dark:hover:bg-gold-light/8 text-text-secondary dark:text-dark-text-secondary transition-colors"
+                    className="rounded-full p-1 hover:bg-gold-primary/8 dark:hover:bg-gold-light/8 text-text-secondary dark:text-dark-text-secondary transition-colors cursor-pointer"
                 >
                     <X className="h-4 w-4" />
                 </button>
             </div>
 
-            {/* TOC List */}
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1.5 custom-scrollbar max-h-[350px]">
-                {groupedCategories.map((group) => {
-                    const isCollapsed = collapsedCategories[group.description] ?? false;
-
-                    return (
-                        <div key={group.description} className="space-y-1">
-                            {/* Category Header */}
-                            <button
-                                type="button"
-                                onClick={() => toggleCategory(group.description)}
-                                className="flex w-full items-center justify-between px-2 py-1.5 rounded-lg hover:bg-gold-primary/5 dark:hover:bg-gold-light/5 text-left transition-colors"
-                            >
-                                <span className="text-[11px] font-bold tracking-[0.05em] text-gold-primary/90 dark:text-gold-light/90 uppercase pl-1">
-                                    {group.description}
+            {/* Content Body with slide animation */}
+            <div className="flex-1 overflow-hidden relative flex flex-col">
+                <AnimatePresence mode="wait" initial={false}>
+                    {selectedChapter ? (
+                        <motion.div
+                            key="verses"
+                            initial={{ opacity: 0, x: 30 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -30 }}
+                            transition={{ duration: 0.18, ease: 'easeOut' }}
+                            className="flex-1 flex flex-col overflow-hidden"
+                        >
+                            {/* 뒤로가기 헤더 */}
+                            <div className="flex items-center gap-2 mb-3 shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedChapter(null)}
+                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gold-primary/8 hover:bg-gold-primary/14 dark:bg-gold-light/8 dark:hover:bg-gold-light/14 text-[10px] font-bold text-gold-primary dark:text-gold-light transition-all cursor-pointer"
+                                >
+                                    <ChevronLeft className="h-3.5 w-3.5" />
+                                    목차로
+                                </button>
+                                <span className="text-[11px] font-bold text-text-primary dark:text-dark-text-primary truncate flex-1 pl-1">
+                                    {selectedChapter.title}
                                 </span>
-                                <ChevronDown
-                                    className={`h-3.5 w-3.5 text-gold-primary/60 dark:text-gold-light/60 transition-transform duration-250 ${
-                                        isCollapsed ? '-rotate-90' : ''
+                            </div>
+
+                            {/* 절 목록 영역 */}
+                            <div className="flex-1 overflow-y-auto pr-1.5 custom-scrollbar pb-2">
+                                {isSubchapterList ? (
+                                    // Subchapter 리스트인 경우 (세로 리스트 형태)
+                                    <div className="space-y-1.5">
+                                        {selectedChapter.buttons.map((btn) => {
+                                            const isCurrent = String(btn.chapterNum) === chapterNum;
+                                            return (
+                                                <button
+                                                    key={btn.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        onCommitSelection(btn.chapterNum, btn.verseNum);
+                                                        setIsOpen(false);
+                                                    }}
+                                                    className={`flex w-full items-center justify-between px-3 py-2.5 rounded-xl text-left transition-all duration-200 cursor-pointer ${
+                                                        isCurrent
+                                                            ? 'bg-gold-primary/12 text-gold-primary dark:bg-gold-light/12 dark:text-gold-light font-bold border border-gold-primary/20 dark:border-gold-light/20'
+                                                            : 'bg-white/40 text-text-primary border border-gold-border/8 hover:border-gold-border/20 hover:bg-white dark:bg-white/4 dark:text-dark-text-primary dark:border-dark-border/40 dark:hover:bg-white/8'
+                                                    }`}
+                                                >
+                                                    <span className="text-[11px] truncate flex-1">{btn.title}</span>
+                                                    {isCurrent && (
+                                                        <span className="h-1.5 w-1.5 rounded-full bg-gold-primary dark:bg-gold-light animate-pulse" />
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    // 일반 개별 절 번호인 경우 (바둑판 그리드 형태)
+                                    <div className="grid grid-cols-5 gap-2">
+                                        {selectedChapter.buttons.map((btn) => {
+                                            const isCurrent = String(btn.chapterNum) === chapterNum && String(btn.verseNum) === verseNum;
+                                            return (
+                                                <button
+                                                    key={btn.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        onCommitSelection(btn.chapterNum, btn.verseNum);
+                                                        setIsOpen(false);
+                                                    }}
+                                                    className={`h-10 rounded-xl flex items-center justify-center text-[11px] font-semibold border transition-all duration-200 cursor-pointer ${
+                                                        isCurrent
+                                                            ? 'bg-gold-primary border-gold-primary text-white shadow-[0_4px_12px_-4px_rgba(166,139,92,0.6)] dark:bg-gold-light dark:border-gold-light dark:text-[#2a2116] font-bold'
+                                                            : 'bg-white/40 border-gold-border/8 text-text-primary hover:border-gold-border/25 hover:bg-white dark:bg-white/4 dark:border-dark-border/40 dark:text-dark-text-primary dark:hover:bg-white/8'
+                                                    }`}
+                                                >
+                                                    {btn.verseNum}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
+                    ) : (
+                        <motion.div
+                            key="chapters"
+                            initial={{ opacity: 0, x: -30 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 30 }}
+                            transition={{ duration: 0.18, ease: 'easeOut' }}
+                            className="flex-1 flex flex-col overflow-hidden"
+                        >
+                            {/* 원문 / 주석(난처석) 토글 탭 */}
+                            <div className="flex p-0.5 rounded-xl bg-gold-primary/8 dark:bg-dark-border/30 mb-3 shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('original')}
+                                    className={`flex-1 py-1.5 text-[10px] font-bold tracking-[0.05em] rounded-lg transition-all cursor-pointer ${
+                                        activeTab === 'original'
+                                            ? 'bg-white text-gold-primary shadow-sm dark:bg-white/10 dark:text-gold-light'
+                                            : 'text-text-secondary/70 dark:text-dark-text-secondary/60 hover:text-text-primary dark:hover:text-dark-text-primary'
                                     }`}
-                                />
-                            </button>
+                                >
+                                    원문 (보리도등론)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('commentary')}
+                                    className={`flex-1 py-1.5 text-[10px] font-bold tracking-[0.05em] rounded-lg transition-all cursor-pointer ${
+                                        activeTab === 'commentary'
+                                            ? 'bg-white text-gold-primary shadow-sm dark:bg-white/10 dark:text-gold-light'
+                                            : 'text-text-secondary/70 dark:text-dark-text-secondary/60 hover:text-text-primary dark:hover:text-dark-text-primary'
+                                    }`}
+                                >
+                                    주석 (난처석)
+                                </button>
+                            </div>
 
-                            {/* Category Chapters/Buttons (Collapsible) */}
-                            {!isCollapsed && (
-                                <div className="space-y-1 pl-1.5 border-l border-gold-border/10 dark:border-dark-border/20 ml-2">
-                                    {group.chapters.map((ch) => {
-                                        const showChapterTitle = ch.title !== group.description;
+                            {/* 챕터 목록 영역 */}
+                            <div className="flex-1 overflow-y-auto pr-1.5 custom-scrollbar space-y-3 pb-2">
+                                {filteredCategories.map((group) => (
+                                    <div key={group.description} className="space-y-1">
+                                        <div className="px-2 py-0.5 text-[9px] font-bold text-gold-primary/70 dark:text-gold-light/70 uppercase tracking-wider border-l border-gold-primary/30">
+                                            {group.description}
+                                        </div>
+                                        <div className="space-y-1">
+                                            {group.chapters.map((ch) => {
+                                                const isCurrentChapter = ch.chapterNums.includes(Number(chapterNum));
 
-                                        return (
-                                            <div key={ch.title} className="space-y-0.5">
-                                                {/* Chapter Title (if it's distinct from Category) */}
-                                                {showChapterTitle && (
-                                                    <div className="px-2.5 py-1 text-[10px] font-semibold text-text-secondary/70 dark:text-dark-text-secondary/70">
-                                                        {ch.title}
-                                                    </div>
-                                                )}
-
-                                                {/* Items */}
-                                                <div className={`space-y-0.5 ${showChapterTitle ? 'pl-2' : ''}`}>
-                                                    {ch.buttons.map((btn) => {
-                                                        const isCurrent = btn.branchPathLength > 0
-                                                            ? String(btn.chapterNum) === chapterNum
-                                                            : String(btn.chapterNum) === chapterNum && String(btn.verseNum) === verseNum;
-
-                                                        return (
-                                                            <button
-                                                                key={btn.id}
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    onCommitSelection(btn.chapterNum, btn.verseNum);
-                                                                    setIsOpen(false);
-                                                                }}
-                                                                className={`flex w-full items-center justify-between px-2.5 py-2 rounded-lg text-left transition-all duration-200 ${
-                                                                    isCurrent
-                                                                        ? 'bg-gold-primary/10 text-gold-primary dark:bg-gold-light/10 dark:text-gold-light font-semibold'
-                                                                        : 'text-text-primary hover:bg-gold-primary/5 dark:text-dark-text-primary dark:hover:bg-gold-light/5'
-                                                                }`}
-                                                            >
-                                                                <div className="flex items-center gap-2 truncate">
-                                                                    {/* Current Position Dot indicator */}
-                                                                    {isCurrent && (
-                                                                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-gold-primary dark:bg-gold-light animate-pulse" />
-                                                                    )}
-                                                                    
-                                                                    {btn.branchPathLength === 0 && (
-                                                                        <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold ${
-                                                                            isCurrent
-                                                                                ? 'bg-gold-primary/20 text-gold-primary dark:bg-gold-light/20 dark:text-gold-light'
-                                                                                : 'bg-gold-primary/8 text-gold-primary dark:bg-gold-light/8 dark:text-gold-light'
-                                                                        }`}>
-                                                                            {isNaN(Number(btn.verseNum)) ? btn.verseNum : `${btn.verseNum}절`}
-                                                                        </span>
-                                                                    )}
-                                                                    <span className="truncate text-[11px]">
-                                                                        {btn.title}
-                                                                    </span>
-                                                                </div>
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                    );
-                })}
+                                                return (
+                                                    <button
+                                                        key={ch.title}
+                                                        type="button"
+                                                        onClick={() => setSelectedChapter(ch)}
+                                                        className={`flex w-full items-center justify-between px-3 py-2.5 rounded-xl text-left border transition-all duration-200 cursor-pointer ${
+                                                            isCurrentChapter
+                                                                ? 'bg-white/70 border-gold-border/20 text-gold-primary dark:bg-white/8 dark:border-dark-border/80 dark:text-gold-light font-bold shadow-sm'
+                                                                : 'bg-white/20 border-gold-border/4 text-text-primary hover:border-gold-border/15 hover:bg-white/50 dark:bg-white/2 dark:border-dark-border/30 dark:text-dark-text-primary dark:hover:bg-white/6'
+                                                        }`}
+                                                    >
+                                                        <span className="text-[11px] truncate flex-1 pr-2">
+                                                            {ch.title}
+                                                        </span>
+                                                        <div className="flex items-center gap-1.5 shrink-0">
+                                                            <span className="text-[9px] font-medium text-text-secondary/50 dark:text-dark-text-secondary/50">
+                                                                {ch.buttons.length}개
+                                                            </span>
+                                                            <span className={`h-1.5 w-1.5 rounded-full ${
+                                                                isCurrentChapter
+                                                                    ? 'bg-gold-primary dark:bg-gold-light animate-pulse scale-110 shadow-[0_0_6px_rgba(166,139,92,0.5)]'
+                                                                    : 'bg-gold-border/20 dark:bg-dark-border/30'
+                                                            }`} />
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
 
             {/* Stepper Footer */}
-            <div className="mt-3 border-t border-gold-border/12 pt-3 dark:border-dark-border/55 flex items-center justify-between">
+            <div className="mt-3 border-t border-gold-border/12 pt-3 dark:border-dark-border/55 flex items-center justify-between shrink-0">
                 <button
                     type="button"
                     disabled={!prevTarget}
