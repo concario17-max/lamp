@@ -168,17 +168,13 @@ export const TOCPicker = ({
         return items;
     }, [chapters]);
 
-    // 현재 선택된 챕터 매칭 설정
+    // 팝오버가 닫힐 때 선택된 챕터(절 그리드) 상태를 초기화하여
+    // 다음에 열릴 때 항상 전체 챕터(목차 트리) 목록이 먼저 나오게 합니다.
     useEffect(() => {
-        if (activeChapter && tocItems.length > 0) {
-            const currentItem = tocItems.find(
-                (item) => item.type === 'subchapter' && item.chapterNum === chapterNum
-            );
-            if (currentItem) {
-                setSelectedChapter(currentItem);
-            }
+        if (!isOpen) {
+            setSelectedChapter(null);
         }
-    }, [activeChapter, chapterNum, tocItems]);
+    }, [isOpen]);
 
     // 패널 닫기 이벤트 핸들러
     useEffect(() => {
