@@ -1,6 +1,6 @@
 import { CSSProperties, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpenText, LampDesk, ScrollText } from 'lucide-react';
+import { LampDesk } from 'lucide-react';
 import { useUI } from '../context/UIContext';
 import { getDesktopVerseColumns } from './ui/desktopVerseLayout';
 
@@ -21,40 +21,10 @@ const Header = ({
     rightContent,
     className = '',
 }: HeaderProps) => {
-    const { activeVerseContentMode, isDesktopSidebarOpen, setActiveVerseContentMode } = useUI();
+    const { isDesktopSidebarOpen } = useUI();
     const desktopGridStyle = showSidebarToggle
         ? ({ '--desktop-verse-columns': getDesktopVerseColumns(isDesktopSidebarOpen, false) } as CSSProperties)
         : undefined;
-
-    const renderVerseModeToggle = () =>
-        showSidebarToggle ? (
-            <div className="inline-flex items-center rounded-[1rem] border border-gold-border/14 bg-shell-main/80 p-0.5 backdrop-blur-sm dark:border-dark-border/70 dark:bg-shell-main-dark/82">
-                {[
-                    { mode: 'commentary' as const, label: '해설', icon: ScrollText },
-                    { mode: 'body' as const, label: '심화', icon: BookOpenText },
-                ].map((option) => {
-                    const isActive = activeVerseContentMode === option.mode;
-                    const Icon = option.icon;
-
-                    return (
-                        <button
-                            key={option.mode}
-                            type="button"
-                            onClick={() => setActiveVerseContentMode(option.mode)}
-                            aria-pressed={isActive}
-                            className={`inline-flex min-w-[3.25rem] items-center justify-center gap-1.5 rounded-[0.85rem] px-2.5 py-1 text-[9px] font-semibold tracking-[0.14em] transition-all duration-300 sm:min-w-[3.45rem] sm:text-[10px] ${
-                                isActive
-                                    ? 'bg-gold-primary text-white shadow-[0_6px_16px_-8px_rgba(166,139,92,0.95)] dark:bg-gold-light dark:text-[#2a2116]'
-                                    : 'text-gold-primary hover:bg-gold-surface/70 dark:text-gold-light dark:hover:bg-white/6'
-                            }`}
-                        >
-                            <Icon className="h-3.5 w-3.5 shrink-0" />
-                            {option.label}
-                        </button>
-                    );
-                })}
-            </div>
-        ) : null;
 
     return (
         <header className={`sticky top-0 z-50 w-full border-b border-gold-border/10 bg-shell-header shadow-none transition-colors duration-500 backdrop-blur-0 dark:border-dark-border/60 dark:bg-shell-header-dark ${className}`}>
@@ -74,7 +44,6 @@ const Header = ({
                     <div className="mt-2 flex w-full items-center justify-end gap-2 border-t border-gold-border/10 pt-2 dark:border-dark-border/50">
                         {rightContent}
                         {selectionControls ? <div className="min-w-0 shrink-0">{selectionControls}</div> : null}
-                        {renderVerseModeToggle()}
                     </div>
                 ) : null}
             </div>
@@ -99,7 +68,6 @@ const Header = ({
                 <div className="flex min-w-0 items-center justify-end gap-2.5 px-5">
                     {rightContent}
                     {selectionControls ? <div className="min-w-0 shrink-0">{selectionControls}</div> : null}
-                    {renderVerseModeToggle()}
                 </div>
             </div>
         </header>

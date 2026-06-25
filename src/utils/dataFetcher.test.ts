@@ -67,32 +67,6 @@ describe('fetchYogaData', () => {
                         },
                     ],
                 },
-                {
-                    id: 'commentary',
-                    chapterName: 'Commentary',
-                    title: 'Commentary',
-                    subchapters: [
-                        {
-                            id: '1',
-                            chapterName: 'Commentary intro',
-                            title: 'Commentary intro',
-                            paragraphs: [
-                                {
-                                    id: 'commentary.1.1',
-                                    title: 'Paragraph 1',
-                                    paragraphNumber: 1,
-                                    chapterTitle: 'Commentary intro',
-                                    text: {
-                                        tibetan: '',
-                                        pronunciation: '',
-                                        english: 'Commentary section 1',
-                                        korean: 'Commentary section 1 KR',
-                                    },
-                                },
-                            ],
-                        },
-                    ],
-                },
             ],
             flatParagraphs: [],
         };
@@ -105,7 +79,7 @@ describe('fetchYogaData', () => {
         const data = await fetchYogaData();
 
         expect(global.fetch).toHaveBeenCalledWith('/reading-data.json');
-        expect(Object.keys(data).map(Number)).toEqual([1, 2, 3]);
+        expect(Object.keys(data).map(Number)).toEqual([1, 2]);
         expect(data[1]).toBeDefined();
         expect(data[1].chapter).toBe(1);
         expect(data[1].meta.name_korean).toBe('Intro');
@@ -117,8 +91,6 @@ describe('fetchYogaData', () => {
         expect(data[2].sutras[0].id).toBe('2.1');
         expect(data[2].sutras[0].verse).toBe(1);
         expect(data[2].sutras[1].verse).toBe('결어');
-        expect(data[3].sutras[0].verse).toBe(71);
-        expect(data[3].sutras[0].commentary_en).toMatch(/Commentary section 1/);
     });
 
     it('throws on fetch failure', async () => {
