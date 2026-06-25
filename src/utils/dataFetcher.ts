@@ -58,10 +58,53 @@ const getLocalVerseNumber = (paragraph: ReadingDataParagraph, paragraphIndex: nu
     return paragraphIndex + 1;
 };
 
+const getParagraphText = (paragraph: ReadingDataParagraph) => {
+    const english = paragraph.text?.english?.trim();
+    const korean = paragraph.text?.korean?.trim();
+    return english || korean || '';
+};
+
+const serializeCommentarySection = (groupTitle: string, subchapter?: ReadingDataSubchapter) => {
+    if (!subchapter?.paragraphs?.length) {
+        return undefined;
+    }
+
+    const sections: string[] = [];
+    const heading = subchapter.chapterName?.trim() || subchapter.title?.trim() || groupTitle.trim();
+    if (heading) {
+        sections.push(`# ${heading}`);
+    }
+
+    subchapter.paragraphs.forEach((paragraph) => {
+        const text = getParagraphText(paragraph);
+        if (text) {
+            sections.push(text);
+        }
+    });
+
+    return sections.filter(Boolean).join('\n\n');
+};
+
+const buildCommentaryLookup = (snapshot: ReadingDataSnapshot) => {
+    const commentaryGroup = snapshot.chapters?.find((chapter) => chapter.id === 'commentary');
+    const commentarySubchapters = commentaryGroup?.subchapters ?? [];
+
+    return commentarySubchapters.reduce<Record<number, string>>((acc, subchapter, index) => {
+        const chapterNumber = index + 1;
+        const content = serializeCommentarySection(commentaryGroup?.title ?? commentaryGroup?.chapterName ?? 'Commentary', subchapter);
+        if (content) {
+            acc[chapterNumber] = content;
+        }
+        return acc;
+    }, {});
+};
+
 const normalizeParagraph = (
     chapterNum: number,
     paragraph: ReadingDataParagraph,
     paragraphIndex: number,
+    commentaryText?: string,
+    bodhiCommentary?: string,
     globalVerseNumber?: number | string,
 ): YogaSutra => {
     const sourceText = paragraph.text ?? { tibetan: '', pronunciation: '', english: '', korean: '' };
@@ -78,7 +121,7 @@ const normalizeParagraph = (
         pronunciation_kr: '',
         translation_en: sourceText.english || undefined,
         translation_ham: sourceText.korean || undefined,
-        commentary_en: undefined,
+        commentary_en: bodhiCommentary || commentaryText || undefined,
         '2.english': sourceText.english || undefined,
         '3.korean-1': sourceText.korean || undefined,
     };
@@ -89,10 +132,14 @@ const normalizeSubchapter = (
     groupTitle: string,
     groupName: string,
     subchapter: ReadingDataSubchapter,
+    commentaryText?: string,
+    bodhiCommentaries?: Record<string, string>,
     counterContext?: { runningCount: number },
 ): YogaChapter => {
     const sutras = (subchapter.paragraphs ?? []).map((paragraph, index) => {
         const verseNumber = getLocalVerseNumber(paragraph, index);
+        const lookupKey = chapterNum <= 2 ? `bodhi.${chapterNum}.${verseNumber}` : `${chapterNum}.${verseNumber}`;
+        const bodhiCommentary = bodhiCommentaries?.[lookupKey];
 
         let globalNum: number | string = verseNumber;
         if (chapterNum === 1) {
@@ -113,7 +160,7 @@ const normalizeSubchapter = (
             }
         }
 
-        return normalizeParagraph(chapterNum, paragraph, index, globalNum);
+        return normalizeParagraph(chapterNum, paragraph, index, commentaryText, bodhiCommentary, globalNum);
     });
 
     return {
@@ -153,7 +200,10 @@ export const fetchYogaData = async (): Promise<Record<number, YogaChapter>> => {
 
     pendingRequest = (async () => {
         try {
-            const dataRes = await fetch('/reading-data.json');
+            const [dataRes, commRes] = await Promise.all([
+                fetch('/reading-data.json'),
+                fetch('/bodhi-commentary.json').catch(() => null)
+            ]);
 
             if (!dataRes.ok) {
                 throw new Error(`Failed to fetch reading data: ${dataRes.status}`);
@@ -161,14 +211,28 @@ export const fetchYogaData = async (): Promise<Record<number, YogaChapter>> => {
 
             const snapshot = JSON.parse(stripBom(await dataRes.text())) as ReadingDataSnapshot;
             
+            let bodhiCommentaries: Record<string, string> = {};
+            if (commRes && commRes.ok && typeof commRes.json === 'function') {
+                try {
+                    bodhiCommentaries = await commRes.json();
+                } catch (e) {
+                    console.error('Error parsing bodhi commentary JSON:', e);
+                }
+            }
+
+            const commentaryLookup = buildCommentaryLookup(snapshot);
             const counterContext = { runningCount: 0 };
             const structuredData = flattenSubchapters(snapshot).reduce<Record<number, YogaChapter>>((acc, entry, index) => {
                 const chapterNumber = index + 1;
+                const commentaryIndex = chapterNumber <= 2 ? chapterNumber : chapterNumber - 2;
+                const commentaryText = commentaryLookup[commentaryIndex];
                 acc[chapterNumber] = normalizeSubchapter(
                     chapterNumber,
                     entry.group.title || entry.group.chapterName || '',
                     entry.group.chapterName || entry.group.title || '',
                     entry.subchapter,
+                    commentaryText,
+                    bodhiCommentaries,
                     counterContext,
                 );
                 return acc;
