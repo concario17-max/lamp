@@ -177,12 +177,14 @@ const normalizeSubchapter = (
 };
 
 const flattenSubchapters = (snapshot: ReadingDataSnapshot) =>
-    (snapshot.chapters ?? []).flatMap((group) =>
-        (group.subchapters ?? []).map((subchapter) => ({
-            group,
-            subchapter,
-        })),
-    );
+    (snapshot.chapters ?? [])
+        .filter((group) => group.id === 'bodhi')
+        .flatMap((group) =>
+            (group.subchapters ?? []).map((subchapter) => ({
+                group,
+                subchapter,
+            })),
+        );
 
 export const resetCache = () => {
     cachedData = null;
